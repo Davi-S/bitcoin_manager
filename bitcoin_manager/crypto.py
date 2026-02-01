@@ -1,5 +1,5 @@
 import hashlib
-from typing import Tuple, Optional, List
+import typing as t
 
 
 # Secp256k1 curve parameters
@@ -41,13 +41,13 @@ def base58_encode(data: bytes) -> str:
     Returns:
         Base58 encoded string
     """
-    if len(data) == 0:
+    if not data:
         return ""
 
     if data[0] == 0:
-        return "1" + base58_encode(data[1:])
+        return f"1{base58_encode(data[1:])}"
 
-    x = sum([v * (256**i) for i, v in enumerate(data[::-1])])
+    x = sum(v * (256**i) for i, v in enumerate(data[::-1]))
     ret = ""
     while x > 0:
         ret = B58_ALPHABET[x % 58] + ret
@@ -102,8 +102,8 @@ def tagged_hash(tag: str, msg: bytes) -> bytes:
 
 
 def point_add(
-    p1: Optional[Tuple[int, int]], p2: Optional[Tuple[int, int]]
-) -> Tuple[int, int]:
+    p1: t.Optional[t.Tuple[int, int]], p2: t.Optional[t.Tuple[int, int]]
+) -> t.Tuple[int, int]:
     """
     Add two points on the secp256k1 elliptic curve.
 
@@ -115,6 +115,8 @@ def point_add(
         Sum of points as (x, y) or None if result is point at infinity
     """
     if p1 is None:
+        if p2 is None:
+            raise ValueError
         return p2
     if p2 is None:
         return p1
@@ -138,7 +140,7 @@ def point_add(
     return (x3, y3)
 
 
-def point_multiply(k: int, point: Tuple[int, int]) -> Tuple[int, int]:
+def point_multiply(k: int, point: t.Tuple[int, int]) -> t.Tuple[int, int]:
     """
     Multiply a point by a scalar using double-and-add algorithm.
 
@@ -164,7 +166,7 @@ def point_multiply(k: int, point: Tuple[int, int]) -> Tuple[int, int]:
     return result
 
 
-def bech32_polymod(values: List[int]) -> int:
+def bech32_polymod(values: t.List[int]) -> int:
     """
     Internal function for Bech32/Bech32m checksum.
 
@@ -184,7 +186,7 @@ def bech32_polymod(values: List[int]) -> int:
     return chk
 
 
-def bech32_hrp_expand(hrp: str) -> List[int]:
+def bech32_hrp_expand(hrp: str) -> t.List[int]:
     """
     Expand HRP for Bech32 checksum.
 
@@ -197,7 +199,7 @@ def bech32_hrp_expand(hrp: str) -> List[int]:
     return [ord(x) >> 5 for x in hrp] + [0] + [ord(x) & 31 for x in hrp]
 
 
-def bech32_create_checksum(hrp: str, data: List[int], spec: str) -> List[int]:
+def bech32_create_checksum(hrp: str, data: t.List[int], spec: str) -> t.List[int]:
     """
     Create checksum for Bech32 or Bech32m.
 
@@ -215,7 +217,7 @@ def bech32_create_checksum(hrp: str, data: List[int], spec: str) -> List[int]:
     return [(polymod >> 5 * (5 - i)) & 31 for i in range(6)]
 
 
-def bech32_encode(hrp: str, data: List[int], spec: str) -> str:
+def bech32_encode(hrp: str, data: t.List[int], spec: str) -> str:
     """
     Encode data using Bech32 or Bech32m.
 
@@ -229,12 +231,12 @@ def bech32_encode(hrp: str, data: List[int], spec: str) -> str:
 
     """
     combined = data + bech32_create_checksum(hrp, data, spec)
-    return hrp + "1" + "".join([BECH32_CHARSET[d] for d in combined])
+    return f"{hrp}1" + "".join([BECH32_CHARSET[d] for d in combined])
 
 
 def convertbits(
-    data: List[int], frombits: int, tobits: int, pad: bool = True
-) -> List[int]:
+    data: t.List[int], frombits: int, tobits: int, pad: bool = True
+) -> t.List[int]:
     """
     Convert between bit groups.
 
@@ -248,7 +250,7 @@ def convertbits(
         Converted data
     """
     if frombits <= 0 or tobits <= 0:
-        raise ValidationError("Bit sizes must be positive")
+        raise ValueError("Bit sizes must be positive")
 
     acc = 0
     bits = 0
@@ -265,5 +267,78 @@ def convertbits(
         if bits:
             ret.append((acc << (tobits - bits)) & maxv)
     elif bits >= frombits or ((acc << (tobits - bits)) & maxv):
-        raise ValidationError("Invalid bit conversion: leftover non-zero bits")
+        raise ValueError("Invalid bit conversion: leftover non-zero bits")
     return ret
+
+
+def wif_to_bytes(wif_str: str) -> bytes:
+    """
+    Decode and validate a WIF (Wallet Import Format) string.
+
+    Args:
+        wif_str: WIF string to decode
+
+    Returns:
+        Private key bytes (32 bytes)
+
+    Raises:
+        ValueError: If WIF format is invalid, checksum fails, or version byte is incorrect
+    """
+    cleaned = wif_str.strip()
+
+    try:
+        decoded = base58_decode(cleaned)
+    except ValueError as e:
+        raise ValueError("Invalid WIF: not valid base58") from e
+
+    # WIF should be 37 bytes (uncompressed) or 38 bytes (compressed)
+    # 1 byte version + 32 bytes key + 4 bytes checksum = 37 (uncompressed)
+    # 1 byte version + 32 bytes key + 1 byte flag + 4 bytes checksum = 38 (compressed)
+    if len(decoded) not in (37, 38):
+        raise ValueError(
+            f"Invalid WIF: incorrect length (expected 37 or 38 bytes, got {len(decoded)})")
+
+    # Check version byte (0x80 for mainnet)
+    if decoded[0] != 0x80:
+        raise ValueError(
+            f"Invalid WIF: incorrect version byte (expected 0x80, got 0x{decoded[0]:02x})")
+
+    # Verify checksum (last 4 bytes)
+    payload = decoded[:-4]
+    checksum = decoded[-4:]
+    expected_checksum = sha256(sha256(payload))[:4]
+    if checksum != expected_checksum:
+        raise ValueError("Invalid WIF: checksum mismatch")
+
+    # Validate compression flag if present
+    if len(decoded) == 38:
+        compression_flag = payload[33]
+        if compression_flag != 0x01:
+            raise ValueError(
+                f"Invalid WIF: invalid compression flag (expected 0x01, got 0x{compression_flag:02x})")
+
+    return payload[1:33]
+
+
+def bytes_to_wif(key_bytes: bytes, compressed: bool = False) -> str:
+    """
+    Generate a WIF (Wallet Import Format) string from private key bytes.
+
+    Args:
+        key_bytes: 32-byte private key
+        compressed: Whether to include compression flag for public key
+
+    Returns:
+        WIF string
+    """
+    version = b"\x80"  # Mainnet
+    payload = version + key_bytes
+
+    if compressed:
+        payload += b"\x01"  # Compression flag
+
+    # Calculate checksum (first 4 bytes of double SHA256)
+    checksum = sha256(sha256(payload))[:4]
+
+    # Encode to base58
+    return base58_encode(payload + checksum)

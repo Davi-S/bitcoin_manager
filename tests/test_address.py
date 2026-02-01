@@ -3,7 +3,7 @@ Tests for address.py - Bitcoin Taproot address generation
 """
 
 import pytest
-import address
+from bitcoin_manager import address
 
 
 @pytest.mark.parametrize(

@@ -9,5 +9,6 @@ wheels/
 # Virtual environments
 .venv
 
-# Private key file for testing
+# Testing files
 private_key.txt
+wallet*

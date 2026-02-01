@@ -1,4 +1,4 @@
-import crypto
+from . import crypto
 
 
 def get_taproot_address(private_key_bytes: bytes) -> str:
@@ -59,7 +59,5 @@ def get_taproot_address(private_key_bytes: bytes) -> str:
     witver = 1
     witprog = crypto.convertbits(list(output_pubkey), 8, 5)
 
-    # Encode as bech32m (mainnet = "bc")
-    address = crypto.bech32_encode("bc", [witver] + witprog, "bech32m")
-    return address
+    return crypto.bech32_encode("bc", [witver] + witprog, "bech32m")
 

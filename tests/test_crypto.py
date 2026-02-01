@@ -3,7 +3,7 @@ Tests for crypto.py - Cryptographic utility functions
 """
 
 import pytest
-import crypto
+from bitcoin_manager import crypto
 
 
 class TestSHA256:
