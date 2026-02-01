@@ -20,7 +20,7 @@ def main():
         print(taproot_address)
 
         with open(pathlib.Path(".").joinpath(f"wallet_{i+1}"), "w") as f:
-            content = f"{private_key.to_hex}\n{taproot_address}"
+            content = f"{private_key.to_wif_compressed}\n{taproot_address}"
             f.write(content)
 
 if __name__ == "__main__":
