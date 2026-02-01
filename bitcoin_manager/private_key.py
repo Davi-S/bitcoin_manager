@@ -74,21 +74,21 @@ class PrivateKey:
         return cls.from_int(key_int)
 
     @property
-    def key_bytes(self) -> bytes:
+    def to_bytes(self) -> bytes:
         """Return the raw 32-byte key."""
         return self._key_bytes
 
     @property
-    def key_int(self) -> int:
+    def to_int(self) -> int:
         """Return the key as an integer."""
         return self._key_int
 
     @property
-    def key_hex(self) -> str:
+    def to_hex(self) -> str:
         """Return the key as a 64-char hex string."""
         return self._key_hex
 
     @property
-    def key_bits(self) -> str:
+    def to_bits(self) -> str:
         """Return the key as a 256-bit string."""
         return self._key_bits
