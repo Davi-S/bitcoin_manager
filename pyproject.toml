@@ -1,0 +1,7 @@
+[project]
+name = "bitcoin-manager"
+version = "0.1.0"
+description = "A pure Python offline library for Bitcoin private key management and address generation."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
