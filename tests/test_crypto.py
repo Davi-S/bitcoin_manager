@@ -257,3 +257,38 @@ class TestConvertbits:
         """Test convertbits with invalid bit sizes."""
         with pytest.raises(Exception):  # Expecting ValidationError or similar
             crypto.convertbits([1, 2, 3], frombits, tobits)
+
+
+class TestSEC1:
+    """Tests for SEC1 public key encoding/decoding."""
+
+    def test_sec1_encode_decode_compressed(self):
+        """Test SEC1 compressed encode/decode roundtrip."""
+        point = (crypto.Gx, crypto.Gy)
+        encoded = crypto.sec1_encode(point, compressed=True)
+        assert len(encoded) == 33
+        assert encoded[0] in (0x02, 0x03)
+        decoded = crypto.sec1_decode(encoded)
+        assert decoded == point
+
+    def test_sec1_encode_decode_uncompressed(self):
+        """Test SEC1 uncompressed encode/decode roundtrip."""
+        point = (crypto.Gx, crypto.Gy)
+        encoded = crypto.sec1_encode(point, compressed=False)
+        assert len(encoded) == 65
+        assert encoded[0] == 0x04
+        decoded = crypto.sec1_decode(encoded)
+        assert decoded == point
+
+    @pytest.mark.parametrize(
+        "invalid_data,error_match",
+        [
+            (b"", "Invalid SEC1 length"),
+            (b"\x01" + b"\x00" * 32, "Invalid SEC1 compressed prefix"),
+            (b"\x04" + b"\x00" * 32, "Invalid SEC1 compressed prefix"),
+        ],
+    )
+    def test_sec1_decode_invalid(self, invalid_data, error_match):
+        """Test SEC1 decoding rejects invalid inputs."""
+        with pytest.raises(ValueError, match=error_match):
+            crypto.sec1_decode(invalid_data)

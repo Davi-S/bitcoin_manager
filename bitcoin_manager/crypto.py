@@ -166,6 +166,96 @@ def point_multiply(k: int, point: t.Tuple[int, int]) -> t.Tuple[int, int]:
     return result
 
 
+def is_on_curve(point: t.Tuple[int, int]) -> bool:
+    """
+    Check whether a point lies on the secp256k1 curve.
+
+    Args:
+        point: Point as (x, y)
+
+    Returns:
+        True if point is on curve, False otherwise
+    """
+    x, y = point
+    if not (0 <= x < P and 0 <= y < P):
+        return False
+    return (y * y - (x * x * x + 7)) % P == 0
+
+
+def sec1_encode(point: t.Tuple[int, int], compressed: bool = True) -> bytes:
+    """
+    Encode a secp256k1 point to SEC1 format.
+
+    Args:
+        point: Point as (x, y)
+        compressed: Whether to use compressed SEC1 format
+
+    Returns:
+        SEC1-encoded bytes
+    """
+    if not is_on_curve(point):
+        raise ValueError("Point is not on the secp256k1 curve")
+
+    x, y = point
+    x_bytes = x.to_bytes(32, byteorder="big")
+    y_bytes = y.to_bytes(32, byteorder="big")
+
+    if compressed:
+        prefix = b"\x02" if y % 2 == 0 else b"\x03"
+        return prefix + x_bytes
+
+    return b"\x04" + x_bytes + y_bytes
+
+
+def sec1_decode(data: bytes) -> t.Tuple[int, int]:
+    """
+    Decode a SEC1-encoded secp256k1 public key into a point.
+
+    Args:
+        data: SEC1-encoded bytes
+
+    Returns:
+        Point as (x, y)
+    """
+    if len(data) == 33:
+        prefix = data[0]
+        if prefix not in (0x02, 0x03):
+            raise ValueError("Invalid SEC1 compressed prefix")
+
+        x = int.from_bytes(data[1:], byteorder="big")
+        if x >= P:
+            raise ValueError("Invalid SEC1 x-coordinate")
+
+        y_sq = (pow(x, 3, P) + 7) % P
+        y = pow(y_sq, (P + 1) // 4, P)
+        if (y * y) % P != y_sq:
+            raise ValueError("Invalid SEC1 compressed point")
+
+        if (y % 2 == 0) != (prefix == 0x02):
+            y = P - y
+
+        point = (x, y)
+        if not is_on_curve(point):
+            raise ValueError("Invalid SEC1 compressed point")
+        return point
+
+    if len(data) == 65:
+        if data[0] != 0x04:
+            raise ValueError("Invalid SEC1 uncompressed prefix")
+
+        x = int.from_bytes(data[1:33], byteorder="big")
+        y = int.from_bytes(data[33:], byteorder="big")
+        if x >= P or y >= P:
+            raise ValueError("Invalid SEC1 uncompressed coordinates")
+
+        point = (x, y)
+        if not is_on_curve(point):
+            raise ValueError("Invalid SEC1 uncompressed point")
+        return point
+
+    raise ValueError("Invalid SEC1 length")
+
+
 def bech32_polymod(values: t.List[int]) -> int:
     """
     Internal function for Bech32/Bech32m checksum.
