@@ -1,5 +1,5 @@
 from . import private_key as pv
-from . import address
+from . import wallet as wlt
 
 
 def main():
@@ -9,11 +9,10 @@ def main():
 
     # Create a private key object from the binary string
     private_key = pv.PrivateKey.from_bits(private_key_bits)
-    print(f"Private key bits: {private_key.to_bits}")
-
-    # Generate the taproot address
-    taproot_address = address.get_taproot_address(private_key.to_bytes)
-    print(f"Address: {taproot_address}")
+    
+    wallet = wlt.Wallet.from_private_key(private_key)
+    
+    print(wallet)
 
 
 if __name__ == "__main__":
