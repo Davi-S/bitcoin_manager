@@ -43,4 +43,3 @@ def get_taproot_address(pubkey: public_key.PublicKey) -> str:
     witprog = crypto.convertbits(list(output_pubkey), 8, 5)
 
     return crypto.bech32_encode("bc", [witver] + witprog, "bech32m")
-

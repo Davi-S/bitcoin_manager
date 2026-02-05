@@ -16,10 +16,10 @@ class Wallet:
     def __post_init__(self) -> None:
         # Derive public key from private key
         derived_public_key = public_key.PublicKey.from_private_key(self._private_key)
-        
+
         # Generate Taproot address
         taproot_address = address.get_taproot_address(derived_public_key)
-        
+
         # Set the derived fields using object.__setattr__ for frozen dataclass
         object.__setattr__(self, "_public_key", derived_public_key)
         object.__setattr__(self, "_address", taproot_address)

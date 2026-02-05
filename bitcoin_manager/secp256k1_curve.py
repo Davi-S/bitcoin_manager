@@ -10,9 +10,11 @@ Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8
 # Secp256k1 order
 SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
+
 @dataclasses.dataclass(frozen=True)
 class Point:
     """Represents a point on the secp256k1 elliptic curve."""
+
     x: int
     y: int
 

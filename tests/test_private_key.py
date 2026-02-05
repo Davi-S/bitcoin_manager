@@ -81,13 +81,16 @@ class TestPrivateKeyValidation:
             invalid_key = b"\x00" * 32
         elif invalid_key_description == "equal_to_N":
             invalid_key = (secp256k1_curve.SECP256K1_ORDER).to_bytes(
-                32, byteorder="big")
+                32, byteorder="big"
+            )
         elif invalid_key_description == "greater_than_N":
-            invalid_key = (secp256k1_curve.SECP256K1_ORDER +
-                           1).to_bytes(32, byteorder="big")
+            invalid_key = (secp256k1_curve.SECP256K1_ORDER + 1).to_bytes(
+                32, byteorder="big"
+            )
         elif invalid_key_description == "much_greater_than_N":
-            invalid_key = (secp256k1_curve.SECP256K1_ORDER +
-                           1000).to_bytes(32, byteorder="big")
+            invalid_key = (secp256k1_curve.SECP256K1_ORDER + 1000).to_bytes(
+                32, byteorder="big"
+            )
 
         with pytest.raises(
             ValueError, match="Private key is out of valid secp256k1 range"

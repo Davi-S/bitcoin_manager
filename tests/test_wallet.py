@@ -17,7 +17,7 @@ class TestWalletCreation:
         )
         priv_key = private_key.PrivateKey.from_bytes(key_bytes)
         w = wallet.Wallet.from_private_key(priv_key)
-        
+
         assert w.private_key == priv_key
         assert w.public_key is not None
         assert w.address.startswith("bc1p")
@@ -26,11 +26,13 @@ class TestWalletCreation:
         """Test that wallet derives correct Taproot address."""
         # Using known test vector from test_address.py
         key_hex = "7e888e146bcf7d8849ed3d8e1341b3a412172d8c886cf76dcc852900d0c51c3e"
-        expected_address = "bc1p6f4a6lpe98xh2mqwk7g85uzj3sw5ll0vy3ek3gyfmsmt8h277s9quzppm8"
-        
+        expected_address = (
+            "bc1p6f4a6lpe98xh2mqwk7g85uzj3sw5ll0vy3ek3gyfmsmt8h277s9quzppm8"
+        )
+
         priv_key = private_key.PrivateKey.from_hex(key_hex)
         w = wallet.Wallet.from_private_key(priv_key)
-        
+
         assert w.address == expected_address
 
     def test_wallet_public_key_derivation(self):
@@ -40,12 +42,16 @@ class TestWalletCreation:
         )
         priv_key = private_key.PrivateKey.from_bytes(key_bytes)
         w = wallet.Wallet.from_private_key(priv_key)
-        
+
         # Public key should match what PublicKey.from_private_key would create
         from bitcoin_manager import public_key
+
         expected_pub_key = public_key.PublicKey.from_private_key(priv_key)
-        
-        assert w.public_key.to_x_only_even_y_bytes == expected_pub_key.to_x_only_even_y_bytes
+
+        assert (
+            w.public_key.to_x_only_even_y_bytes
+            == expected_pub_key.to_x_only_even_y_bytes
+        )
 
 
 class TestWalletImmutability:
@@ -57,10 +63,10 @@ class TestWalletImmutability:
             "7e888e146bcf7d8849ed3d8e1341b3a412172d8c886cf76dcc852900d0c51c3e"
         )
         w = wallet.Wallet.from_private_key(priv_key)
-        
+
         with pytest.raises(AttributeError):
             w.private_key = private_key.PrivateKey.from_int(12345)
-        
+
         with pytest.raises(AttributeError):
             w.address = "bc1pnotvalid"
 
@@ -74,7 +80,7 @@ class TestWalletProperties:
             "7e888e146bcf7d8849ed3d8e1341b3a412172d8c886cf76dcc852900d0c51c3e"
         )
         w = wallet.Wallet.from_private_key(priv_key)
-        
+
         # All properties should be accessible and non-None
         assert w.private_key is not None
         assert w.public_key is not None
@@ -103,6 +109,6 @@ class TestWalletMultipleKeys:
         """Test wallet creation with multiple different private keys."""
         priv_key = private_key.PrivateKey.from_hex(hex_key)
         w = wallet.Wallet.from_private_key(priv_key)
-        
+
         assert w.address == expected_address
         assert w.private_key.to_hex == hex_key

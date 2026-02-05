@@ -29,6 +29,3 @@ def test_get_taproot_address(hex_key, expected_address):
     pub_key = public_key.PublicKey.from_private_key(priv_key)
     result_address = address.get_taproot_address(pub_key)
     assert result_address == expected_address
-
-
-

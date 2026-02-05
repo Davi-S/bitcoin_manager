@@ -49,14 +49,17 @@ class PrivateKey:
         object.__setattr__(self, "_key_int", key_int)
         object.__setattr__(self, "_key_hex", self._key_bytes.hex())
         object.__setattr__(
-            self, "_key_bits", bin(key_int)[2:].rjust(
-                _KEY_LENGTH_BYTES * 8, "0")
+            self, "_key_bits", bin(key_int)[2:].rjust(_KEY_LENGTH_BYTES * 8, "0")
         )
         # Generate WIF formats
-        object.__setattr__(self, "_key_wif", crypto.bytes_to_wif(
-            self._key_bytes, compressed=False))
-        object.__setattr__(self, "_key_wif_compressed",
-                           crypto.bytes_to_wif(self._key_bytes, compressed=True))
+        object.__setattr__(
+            self, "_key_wif", crypto.bytes_to_wif(self._key_bytes, compressed=False)
+        )
+        object.__setattr__(
+            self,
+            "_key_wif_compressed",
+            crypto.bytes_to_wif(self._key_bytes, compressed=True),
+        )
 
     @classmethod
     def from_bytes(cls, key_bytes: bytes) -> "PrivateKey":

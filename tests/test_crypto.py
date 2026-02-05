@@ -259,7 +259,9 @@ class TestSEC1:
 
     def test_sec1_encode_decode_compressed(self):
         """Test SEC1 compressed encode/decode roundtrip."""
-        pt = secp256k1_curve.Point.from_coordinates(secp256k1_curve.Gx, secp256k1_curve.Gy)
+        pt = secp256k1_curve.Point.from_coordinates(
+            secp256k1_curve.Gx, secp256k1_curve.Gy
+        )
         encoded = pt.to_sec1(compressed=True)
         assert len(encoded) == 33
         assert encoded[0] in (0x02, 0x03)
@@ -268,7 +270,9 @@ class TestSEC1:
 
     def test_sec1_encode_decode_uncompressed(self):
         """Test SEC1 uncompressed encode/decode roundtrip."""
-        pt = secp256k1_curve.Point.from_coordinates(secp256k1_curve.Gx, secp256k1_curve.Gy)
+        pt = secp256k1_curve.Point.from_coordinates(
+            secp256k1_curve.Gx, secp256k1_curve.Gy
+        )
         encoded = pt.to_sec1(compressed=False)
         assert len(encoded) == 65
         assert encoded[0] == 0x04

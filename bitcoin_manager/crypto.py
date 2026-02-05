@@ -222,12 +222,14 @@ def wif_to_bytes(wif_str: str) -> bytes:
     # 1 byte version + 32 bytes key + 1 byte flag + 4 bytes checksum = 38 (compressed)
     if len(decoded) not in (37, 38):
         raise ValueError(
-            f"Invalid WIF: incorrect length (expected 37 or 38 bytes, got {len(decoded)})")
+            f"Invalid WIF: incorrect length (expected 37 or 38 bytes, got {len(decoded)})"
+        )
 
     # Check version byte (0x80 for mainnet)
     if decoded[0] != 0x80:
         raise ValueError(
-            f"Invalid WIF: incorrect version byte (expected 0x80, got 0x{decoded[0]:02x})")
+            f"Invalid WIF: incorrect version byte (expected 0x80, got 0x{decoded[0]:02x})"
+        )
 
     # Verify checksum (last 4 bytes)
     payload = decoded[:-4]
@@ -241,7 +243,8 @@ def wif_to_bytes(wif_str: str) -> bytes:
         compression_flag = payload[33]
         if compression_flag != 0x01:
             raise ValueError(
-                f"Invalid WIF: invalid compression flag (expected 0x01, got 0x{compression_flag:02x})")
+                f"Invalid WIF: invalid compression flag (expected 0x01, got 0x{compression_flag:02x})"
+            )
 
     return payload[1:33]
 
