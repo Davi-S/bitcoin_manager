@@ -102,6 +102,22 @@ class Transaction:
     def add_output(self, tx_output: TxOutput) -> None:
         self._outputs.append(tx_output)
 
+    @property
+    def inputs(self) -> t.Tuple[TxInput, ...]:
+        return tuple(self._inputs)
+
+    @property
+    def outputs(self) -> t.Tuple[TxOutput, ...]:
+        return tuple(self._outputs)
+
+    @property
+    def version(self) -> int:
+        return self._version
+
+    @property
+    def locktime(self) -> int:
+        return self._locktime
+
     def set_witness(self, index: int, stack_items: t.Iterable[bytes]) -> None:
         if index < 0 or index >= len(self._inputs):
             raise IndexError("input index out of range")
@@ -145,6 +161,7 @@ def sign_schnorr(
     priv_key: private_key.PrivateKey,
     msg: bytes,
     aux_rand: bytes | None = None,
+    merkle_root: bytes | None = b"",
 ) -> bytes:
     """
     Create a BIP340 Schnorr signature for a 32-byte message digest.
@@ -153,6 +170,8 @@ def sign_schnorr(
         priv_key: Private key to sign with.
         msg: 32-byte message digest to sign.
         aux_rand: Optional 32-byte auxiliary randomness.
+        merkle_root: Optional Taproot Merkle root (32 bytes). Use b"" for key-path
+            spend without script tree. Pass None to disable Taproot tweaking.
 
     Returns:
         64-byte Schnorr signature (r || s).
@@ -165,8 +184,33 @@ def sign_schnorr(
     if len(aux_rand) != 32:
         raise ValueError("aux_rand must be 32 bytes")
 
+    if merkle_root is not None and len(merkle_root) not in (0, 32):
+        raise ValueError("merkle_root must be empty or 32 bytes")
+
     d0 = priv_key.to_int
     pub_point = secp256k1_curve.G.multiply(d0)
+
+    if pub_point.y % 2 != 0:
+        d0 = secp256k1_curve.SECP256K1_ORDER - d0
+        pub_point = secp256k1_curve.G.multiply(d0)
+
+    if merkle_root is not None:
+        tweak_int = (
+            int.from_bytes(
+                crypto_utils.tagged_hash(
+                    "TapTweak",
+                    pub_point.x.to_bytes(32, byteorder="big") + merkle_root,
+                ),
+                byteorder="big",
+            )
+            % secp256k1_curve.SECP256K1_ORDER
+        )
+        if tweak_int != 0:
+            d0 = (d0 + tweak_int) % secp256k1_curve.SECP256K1_ORDER
+            if d0 == 0:
+                raise ValueError("Tweaked private key is zero")
+            pub_point = secp256k1_curve.G.multiply(d0)
+
     d = (
         secp256k1_curve.SECP256K1_ORDER - d0
         if pub_point.y % 2 != 0
