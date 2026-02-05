@@ -117,3 +117,7 @@ class PrivateKey:
     def to_wif_compressed(self) -> str:
         """Return the key as a compressed WIF string."""
         return self._key_wif_compressed
+
+    def __str__(self) -> str:
+        """Return the WIF compressed format of the private key."""
+        return self._key_wif_compressed

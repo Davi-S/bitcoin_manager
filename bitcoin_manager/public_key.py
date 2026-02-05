@@ -112,3 +112,7 @@ class PublicKey:
     def to_sec1_uncompressed_even_y_bytes(self) -> bytes:
         """Return the SEC1 uncompressed public key bytes (even-Y point)."""
         return self._sec1_uncompressed_even_y_bytes
+
+    def __str__(self) -> str:
+        """Return the SEC1 compressed public key as hex."""
+        return self._sec1_compressed_raw_bytes.hex()

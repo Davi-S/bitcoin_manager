@@ -43,3 +43,13 @@ class Wallet:
     def address(self) -> str:
         """Return the Taproot address."""
         return self._address
+
+    def __str__(self) -> str:
+        """Return a user-friendly string representation of the wallet."""
+        return (
+            f"Bitcoin Wallet\n"
+            f"==============\n"
+            f"Private Key (WIF): {self._private_key.to_wif_compressed}\n"
+            f"Public Key (SEC1): {self._public_key.to_sec1_compressed_raw_bytes.hex()}\n"
+            f"Address (Taproot): {self._address}"
+        )
