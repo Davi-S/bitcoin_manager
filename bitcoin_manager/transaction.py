@@ -17,8 +17,6 @@ class Prevout:
     def __post_init__(self) -> None:
         if self.amount < 0:
             raise ValueError("amount must be non-negative")
-        if not isinstance(self.script_pubkey, (bytes, bytearray)):
-            raise TypeError("script_pubkey must be bytes")
 
 
 @dataclasses.dataclass(frozen=True)
@@ -66,8 +64,6 @@ class TxOutput:
     def __post_init__(self) -> None:
         if self.value < 0:
             raise ValueError("value must be non-negative")
-        if not isinstance(self.script_pubkey, (bytes, bytearray)):
-            raise TypeError("script_pubkey must be bytes")
 
     def serialize(self) -> bytes:
         return (
@@ -88,46 +84,46 @@ class Transaction:
         outputs: t.Optional[t.Iterable[TxOutput]] = None,
         witnesses: t.Optional[t.Iterable[t.Iterable[bytes]]] = None,
     ) -> None:
-        self.version = version
-        self.locktime = locktime
-        self.inputs = list(inputs) if inputs else []
-        self.outputs = list(outputs) if outputs else []
+        self._version = version
+        self._locktime = locktime
+        self._inputs = list(inputs) if inputs else []
+        self._outputs = list(outputs) if outputs else []
         if witnesses is None:
-            self.witnesses = [[] for _ in self.inputs]
+            self._witnesses = [[] for _ in self._inputs]
         else:
-            self.witnesses = [list(w) for w in witnesses]
-        if len(self.witnesses) != len(self.inputs):
+            self._witnesses = [list(w) for w in witnesses]
+        if len(self._witnesses) != len(self._inputs):
             raise ValueError("witnesses length must match number of inputs")
 
     def add_input(self, tx_input: TxInput) -> None:
-        self.inputs.append(tx_input)
-        self.witnesses.append([])
+        self._inputs.append(tx_input)
+        self._witnesses.append([])
 
     def add_output(self, tx_output: TxOutput) -> None:
-        self.outputs.append(tx_output)
+        self._outputs.append(tx_output)
 
     def set_witness(self, index: int, stack_items: t.Iterable[bytes]) -> None:
-        if index < 0 or index >= len(self.inputs):
+        if index < 0 or index >= len(self._inputs):
             raise IndexError("input index out of range")
-        self.witnesses[index] = list(stack_items)
+        self._witnesses[index] = list(stack_items)
 
     def serialize(self, include_witness: bool = True) -> bytes:
-        use_witness = include_witness and any(self.witnesses)
-        result = crypto_utils.int_to_le_bytes(self.version, 4)
+        use_witness = include_witness and any(self._witnesses)
+        result = crypto_utils.int_to_le_bytes(self._version, 4)
         if use_witness:
             result += b"\x00\x01"
-        result += crypto_utils.encode_varint(len(self.inputs))
-        for tx_input in self.inputs:
+        result += crypto_utils.encode_varint(len(self._inputs))
+        for tx_input in self._inputs:
             result += tx_input.serialize()
-        result += crypto_utils.encode_varint(len(self.outputs))
-        for tx_output in self.outputs:
+        result += crypto_utils.encode_varint(len(self._outputs))
+        for tx_output in self._outputs:
             result += tx_output.serialize()
         if use_witness:
-            for witness in self.witnesses:
+            for witness in self._witnesses:
                 result += crypto_utils.encode_varint(len(witness))
                 for item in witness:
                     result += crypto_utils.encode_varint(len(item)) + item
-        result += crypto_utils.int_to_le_bytes(self.locktime, 4)
+        result += crypto_utils.int_to_le_bytes(self._locktime, 4)
         return result
 
     def txid(self) -> bytes:
