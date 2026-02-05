@@ -1,36 +1,25 @@
 from . import crypto
 from . import secp256k1_curve
+from . import public_key
 
 
-def get_taproot_address(private_key_bytes: bytes) -> str:
+def get_taproot_address(pubkey: public_key.PublicKey) -> str:
     """
-    Generate Taproot (P2TR) Bitcoin address from private key.
+    Generate Taproot (P2TR) Bitcoin address from public key.
 
     This follows BIP340 (Schnorr) and BIP341 (Taproot) specifications.
 
     Args:
-        private_key_bytes: 32-byte private key
+        pubkey: PublicKey object
 
     Returns:
         Bitcoin Taproot address (starts with 'bc1p')
     """
-    # Convert private key to integer
-    private_key_int = int.from_bytes(private_key_bytes, byteorder="big")
-
-    if private_key_int == 0 or private_key_int >= secp256k1_curve.N:
-        raise ValueError("Private key out of valid range")
-
-    # Generate public key point on secp256k1
-    public_key_point = secp256k1_curve.G.multiply(private_key_int)
-
-    # For BIP340, if Y is odd, negate the private key
-    # This ensures we always use the even Y coordinate
-    if public_key_point.y % 2 != 0:
-        private_key_int = secp256k1_curve.N - private_key_int
-        public_key_point = secp256k1_curve.G.multiply(private_key_int)
+    # Get the even-Y normalized point for BIP340 compatibility
+    public_key_point = pubkey.to_point_even_y
 
     # The internal public key (x-only, 32 bytes)
-    internal_pubkey = public_key_point.x.to_bytes(32, byteorder="big")
+    internal_pubkey = pubkey.to_x_only_even_y_bytes
 
     # Compute taproot tweak
     # For key-path only spending (no script tree), merkle_root is empty

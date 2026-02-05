@@ -4,6 +4,8 @@ Tests for address.py - Bitcoin Taproot address generation
 
 import pytest
 from bitcoin_manager import address
+from bitcoin_manager import private_key
+from bitcoin_manager import public_key
 
 
 @pytest.mark.parametrize(
@@ -23,25 +25,10 @@ from bitcoin_manager import address
 def test_get_taproot_address(hex_key, expected_address):
     """Test Taproot P2TR address generation from private keys."""
     key_bytes = bytes.fromhex(hex_key)
-    result_address = address.get_taproot_address(key_bytes)
+    priv_key = private_key.PrivateKey.from_bytes(key_bytes)
+    pub_key = public_key.PublicKey.from_private_key(priv_key)
+    result_address = address.get_taproot_address(pub_key)
     assert result_address == expected_address
 
 
-def test_get_taproot_address_invalid_key_length():
-    """Test that invalid key length raises ValueError"""
-    with pytest.raises(ValueError, match="Private key out of valid range"):
-        address.get_taproot_address(b"\x00" * 31)  # 31 bytes instead of 32
 
-
-@pytest.mark.parametrize(
-    "invalid_key_hex",
-    [
-        "0000000000000000000000000000000000000000000000000000000000000001",  # 1
-        "0000000000000000000000000000000000000000000000000000000000000000",  # 0
-    ],
-)
-def test_get_taproot_address_invalid_key_value(invalid_key_hex):
-    """Test that non valid private key raises ValueError"""
-    invalid_key = bytes.fromhex(invalid_key_hex)
-    with pytest.raises(ValueError, match="Private key out of valid range"):
-        address.get_taproot_address(invalid_key * 32)
