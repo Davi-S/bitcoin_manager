@@ -125,7 +125,7 @@ class TestPointOperations:
     def test_point_add(self):
         """Test point addition on secp256k1 curve."""
         # Use generator point
-        result = secp256k1_curve.point_add(secp256k1_curve.G, secp256k1_curve.G)
+        result = secp256k1_curve.G.add(secp256k1_curve.G)
         assert result is not None
         assert isinstance(result, secp256k1_curve.Point)
         assert result.x > 0
@@ -137,7 +137,7 @@ class TestPointOperations:
     )
     def test_point_multiply(self, scalar):
         """Test point multiplication on secp256k1 curve."""
-        result = secp256k1_curve.point_multiply(secp256k1_curve.G, scalar)
+        result = secp256k1_curve.G.multiply(scalar)
         assert result is not None
         assert isinstance(result, secp256k1_curve.Point)
         assert result.x > 0
@@ -159,7 +159,7 @@ class TestPointOperations:
         with pytest.raises(
             ValueError, match="Scalar must be an integer greater than 0"
         ):
-            secp256k1_curve.point_multiply(secp256k1_curve.G, invalid_scalar)
+            secp256k1_curve.G.multiply(invalid_scalar)
 
 
 class TestBech32:
@@ -265,7 +265,7 @@ class TestSEC1:
         encoded = pt.to_sec1(compressed=True)
         assert len(encoded) == 33
         assert encoded[0] in (0x02, 0x03)
-        decoded = secp256k1_curve.sec1_decode(encoded)
+        decoded = secp256k1_curve.Point.from_sec1(encoded)
         assert decoded == pt
 
     def test_sec1_encode_decode_uncompressed(self):
@@ -276,7 +276,7 @@ class TestSEC1:
         encoded = pt.to_sec1(compressed=False)
         assert len(encoded) == 65
         assert encoded[0] == 0x04
-        decoded = secp256k1_curve.sec1_decode(encoded)
+        decoded = secp256k1_curve.Point.from_sec1(encoded)
         assert decoded == pt
 
     @pytest.mark.parametrize(
@@ -290,4 +290,4 @@ class TestSEC1:
     def test_sec1_decode_invalid(self, invalid_data, error_match):
         """Test SEC1 decoding rejects invalid inputs."""
         with pytest.raises(ValueError, match=error_match):
-            secp256k1_curve.sec1_decode(invalid_data)
+            secp256k1_curve.Point.from_sec1(invalid_data)

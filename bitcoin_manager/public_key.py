@@ -70,7 +70,7 @@ class PublicKey:
     @classmethod
     def from_sec1(cls, sec1_bytes: bytes) -> "PublicKey":
         """Create from SEC1-encoded public key bytes."""
-        decoded = secp256k1_curve.sec1_decode(sec1_bytes)
+        decoded = secp256k1_curve.Point.from_sec1(sec1_bytes)
         return cls(decoded)
 
     @property

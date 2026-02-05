@@ -75,15 +75,11 @@ class TestPublicKeyRepresentations:
 
         assert pub.to_x_only_raw_bytes == x_bytes
         assert pub.to_x_only_even_y_bytes == even_point.x.to_bytes(32, byteorder="big")
-        assert pub.to_sec1_compressed_raw_bytes == secp256k1_curve.sec1_encode(
-            pt, compressed=True
+        assert pub.to_sec1_compressed_raw_bytes == pt.to_sec1(compressed=True)
+        assert pub.to_sec1_uncompressed_raw_bytes == pt.to_sec1(compressed=False)
+        assert pub.to_sec1_compressed_even_y_bytes == even_point.to_sec1(
+            compressed=True
         )
-        assert pub.to_sec1_uncompressed_raw_bytes == secp256k1_curve.sec1_encode(
-            pt, compressed=False
-        )
-        assert pub.to_sec1_compressed_even_y_bytes == secp256k1_curve.sec1_encode(
-            even_point, compressed=True
-        )
-        assert pub.to_sec1_uncompressed_even_y_bytes == secp256k1_curve.sec1_encode(
-            even_point, compressed=False
+        assert pub.to_sec1_uncompressed_even_y_bytes == even_point.to_sec1(
+            compressed=False
         )
