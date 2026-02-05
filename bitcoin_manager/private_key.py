@@ -1,6 +1,7 @@
 import dataclasses
 
 from . import crypto
+from . import secp256k1_curve
 
 
 _KEY_LENGTH_BYTES = 32
@@ -42,7 +43,7 @@ class PrivateKey:
         if len(self._key_bytes) != _KEY_LENGTH_BYTES:
             raise ValueError("Private key must be exactly 32 bytes")
         key_int = int.from_bytes(self._key_bytes, byteorder="big")
-        if not (1 <= key_int < crypto.SECP256K1_ORDER):
+        if not (1 <= key_int < secp256k1_curve.SECP256K1_ORDER):
             raise ValueError("Private key is out of valid secp256k1 range")
         object.__setattr__(self, "_key_bytes", self._key_bytes)
         object.__setattr__(self, "_key_int", key_int)

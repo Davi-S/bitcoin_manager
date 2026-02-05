@@ -1,4 +1,5 @@
 from . import crypto
+from . import secp256k1_curve
 
 
 def get_taproot_address(private_key_bytes: bytes) -> str:
@@ -16,25 +17,20 @@ def get_taproot_address(private_key_bytes: bytes) -> str:
     # Convert private key to integer
     private_key_int = int.from_bytes(private_key_bytes, byteorder="big")
 
-    if private_key_int == 0 or private_key_int >= crypto.N:
+    if private_key_int == 0 or private_key_int >= secp256k1_curve.N:
         raise ValueError("Private key out of valid range")
 
-    # Generate public key point (x, y) on secp256k1
-    public_key_point = crypto.point_multiply(private_key_int, (crypto.Gx, crypto.Gy))
-
-    x, y = public_key_point
+    # Generate public key point on secp256k1
+    public_key_point = secp256k1_curve.G.multiply(private_key_int)
 
     # For BIP340, if Y is odd, negate the private key
     # This ensures we always use the even Y coordinate
-    if y % 2 != 0:
-        private_key_int = crypto.N - private_key_int
-        public_key_point = crypto.point_multiply(
-            private_key_int, (crypto.Gx, crypto.Gy)
-        )
-        x, y = public_key_point
+    if public_key_point.y % 2 != 0:
+        private_key_int = secp256k1_curve.N - private_key_int
+        public_key_point = secp256k1_curve.G.multiply(private_key_int)
 
     # The internal public key (x-only, 32 bytes)
-    internal_pubkey = x.to_bytes(32, byteorder="big")
+    internal_pubkey = public_key_point.x.to_bytes(32, byteorder="big")
 
     # Compute taproot tweak
     # For key-path only spending (no script tree), merkle_root is empty
@@ -45,14 +41,12 @@ def get_taproot_address(private_key_bytes: bytes) -> str:
     tweak_int = int.from_bytes(tweak_hash, byteorder="big")
 
     # Compute output key Q = P + tweak*G
-    tweak_point = crypto.point_multiply(tweak_int, (crypto.Gx, crypto.Gy))
+    tweak_point = secp256k1_curve.G.multiply(tweak_int)
 
-    output_point = crypto.point_add(public_key_point, tweak_point)
-
-    output_x, output_y = output_point
+    output_point = public_key_point.add(tweak_point)
 
     # The output public key (x-only, 32 bytes)
-    output_pubkey = output_x.to_bytes(32, byteorder="big")
+    output_pubkey = output_point.x.to_bytes(32, byteorder="big")
 
     # Encode as Bech32m address (witness version 1)
     # Convert to 5-bit groups for bech32m

@@ -4,7 +4,7 @@ Tests for public_key.py - Bitcoin public key handling
 
 import pytest
 
-from bitcoin_manager import crypto
+from bitcoin_manager import secp256k1_curve
 from bitcoin_manager import private_key
 from bitcoin_manager import public_key
 
@@ -20,30 +20,34 @@ class TestPublicKeyCreation:
         pk = private_key.PrivateKey.from_hex(key_hex)
         pub = public_key.PublicKey.from_private_key(pk)
 
-        expected_point = crypto.point_multiply(pk.to_int, (crypto.Gx, crypto.Gy))
+        expected_point = secp256k1_curve.G.multiply(pk.to_int)
         assert pub.to_point_raw == expected_point
 
-        x_raw, y_raw = expected_point
-        expected_even = expected_point if y_raw % 2 == 0 else (x_raw, crypto.P - y_raw)
+        y_raw = expected_point.y
+        expected_even = (
+            expected_point
+            if y_raw % 2 == 0
+            else secp256k1_curve.Point.from_coordinates(expected_point.x, secp256k1_curve.P - y_raw)
+        )
         assert pub.to_point_even_y == expected_even
 
     def test_from_point(self):
         """Test creating PublicKey from explicit point."""
-        point = (crypto.Gx, crypto.Gy)
-        pub = public_key.PublicKey.from_point(point)
-        assert pub.to_point_raw == point
+        pt = secp256k1_curve.Point.from_coordinates(secp256k1_curve.Gx, secp256k1_curve.Gy)
+        pub = public_key.PublicKey.from_point(pt)
+        assert pub.to_point_raw == pt
 
     def test_from_point_invalid(self):
         """Test invalid point raises ValueError."""
-        with pytest.raises(ValueError, match="Public key point is not on secp256k1 curve"):
-            public_key.PublicKey.from_point((1, 1))
+        with pytest.raises(ValueError, match="Point is not on the secp256k1 curve"):
+            secp256k1_curve.Point.from_coordinates(1, 1)
 
     def test_from_sec1(self):
         """Test creating PublicKey from SEC1 bytes."""
-        point = (crypto.Gx, crypto.Gy)
-        sec1_bytes = crypto.sec1_encode(point, compressed=True)
+        pt = secp256k1_curve.Point.from_coordinates(secp256k1_curve.Gx, secp256k1_curve.Gy)
+        sec1_bytes = pt.to_sec1(compressed=True)
         pub = public_key.PublicKey.from_sec1(sec1_bytes)
-        assert pub.to_point_raw == point
+        assert pub.to_point_raw == pt
 
 
 class TestPublicKeyRepresentations:
@@ -51,17 +55,19 @@ class TestPublicKeyRepresentations:
 
     def test_representations(self):
         """Test PublicKey representation outputs."""
-        point = (crypto.Gx, crypto.Gy)
-        pub = public_key.PublicKey.from_point(point)
+        pt = secp256k1_curve.Point.from_coordinates(secp256k1_curve.Gx, secp256k1_curve.Gy)
+        pub = public_key.PublicKey.from_point(pt)
 
-        x_raw, y_raw = point
-        x_bytes = x_raw.to_bytes(32, byteorder="big")
+        x_bytes = pt.x.to_bytes(32, byteorder="big")
 
-        even_point = point if y_raw % 2 == 0 else (x_raw, crypto.P - y_raw)
+        y_raw = pt.y
+        even_point = (
+            pt if y_raw % 2 == 0 else secp256k1_curve.Point.from_coordinates(pt.x, secp256k1_curve.P - y_raw)
+        )
         
         assert pub.to_x_only_raw_bytes == x_bytes
-        assert pub.to_x_only_even_y_bytes == even_point[0].to_bytes(32, byteorder="big")
-        assert pub.to_sec1_compressed_raw_bytes == crypto.sec1_encode(point, compressed=True)
-        assert pub.to_sec1_uncompressed_raw_bytes == crypto.sec1_encode(point, compressed=False)
-        assert pub.to_sec1_compressed_even_y_bytes == crypto.sec1_encode(even_point, compressed=True)
-        assert pub.to_sec1_uncompressed_even_y_bytes == crypto.sec1_encode(even_point, compressed=False)
+        assert pub.to_x_only_even_y_bytes == even_point.x.to_bytes(32, byteorder="big")
+        assert pub.to_sec1_compressed_raw_bytes == secp256k1_curve.sec1_encode(pt, compressed=True)
+        assert pub.to_sec1_uncompressed_raw_bytes == secp256k1_curve.sec1_encode(pt, compressed=False)
+        assert pub.to_sec1_compressed_even_y_bytes == secp256k1_curve.sec1_encode(even_point, compressed=True)
+        assert pub.to_sec1_uncompressed_even_y_bytes == secp256k1_curve.sec1_encode(even_point, compressed=False)

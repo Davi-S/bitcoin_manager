@@ -4,6 +4,7 @@ Tests for crypto.py - Cryptographic utility functions
 
 import pytest
 from bitcoin_manager import crypto
+from bitcoin_manager import secp256k1_curve
 
 
 class TestSHA256:
@@ -110,29 +111,25 @@ class TestTaggedHash:
 class TestPointOperations:
     """Tests for elliptic curve point operations."""
 
-    def test_point_add_with_none(self):
-        """Test point addition with None (point at infinity)."""
-        point = (Gx, Gy) = (crypto.Gx, crypto.Gy)
+    def test_point_add_with_point_objects(self):
+        """Test point addition with Point objects."""
+        point1 = secp256k1_curve.G
+        point2 = secp256k1_curve.G
 
-        # Adding None to a point returns the point
-        result = crypto.point_add(None, point)
-        assert result == point
-
-        # Adding a point to None returns the point
-        result = crypto.point_add(point, None)
-        assert result == point
+        # Add two Point objects
+        result = point1.add(point2)
+        assert isinstance(result, secp256k1_curve.Point)
+        assert result.x > 0
+        assert result.y > 0
 
     def test_point_add(self):
         """Test point addition on secp256k1 curve."""
         # Use generator point
-        G = (crypto.Gx, crypto.Gy)
-
-        # Add G to itself (should give 2G)
-        result = crypto.point_add(G, G)
+        result = secp256k1_curve.point_add(secp256k1_curve.G, secp256k1_curve.G)
         assert result is not None
-        assert len(result) == 2
-        assert isinstance(result[0], int)
-        assert isinstance(result[1], int)
+        assert isinstance(result, secp256k1_curve.Point)
+        assert result.x > 0
+        assert result.y > 0
 
     @pytest.mark.parametrize(
         "scalar",
@@ -140,18 +137,18 @@ class TestPointOperations:
     )
     def test_point_multiply(self, scalar):
         """Test point multiplication on secp256k1 curve."""
-        G = (crypto.Gx, crypto.Gy)
-
-        result = crypto.point_multiply(scalar, G)
+        result = secp256k1_curve.point_multiply(secp256k1_curve.G, scalar)
         assert result is not None
-        assert len(result) == 2
-        assert isinstance(result[0], int)
-        assert isinstance(result[1], int)
+        assert isinstance(result, secp256k1_curve.Point)
+        assert result.x > 0
+        assert result.y > 0
 
-        if scalar == 1:
-            assert result == G
-        else:
-            assert result != G
+    def test_point_multiply_with_point_object(self):
+        """Test point multiplication with Point object."""
+        result = secp256k1_curve.G.multiply(5)
+        assert isinstance(result, secp256k1_curve.Point)
+        assert result.x > 0
+        assert result.y > 0
 
     @pytest.mark.parametrize(
         "invalid_scalar",
@@ -159,12 +156,10 @@ class TestPointOperations:
     )
     def test_point_multiply_invalid_scalar(self, invalid_scalar):
         """Test point multiplication with invalid scalars."""
-        G = (crypto.Gx, crypto.Gy)
-
         with pytest.raises(
             ValueError, match="Scalar must be an integer greater than 0"
         ):
-            crypto.point_multiply(invalid_scalar, G)
+            secp256k1_curve.point_multiply(secp256k1_curve.G, invalid_scalar)
 
 
 class TestBech32:
@@ -264,21 +259,21 @@ class TestSEC1:
 
     def test_sec1_encode_decode_compressed(self):
         """Test SEC1 compressed encode/decode roundtrip."""
-        point = (crypto.Gx, crypto.Gy)
-        encoded = crypto.sec1_encode(point, compressed=True)
+        pt = secp256k1_curve.Point.from_coordinates(secp256k1_curve.Gx, secp256k1_curve.Gy)
+        encoded = pt.to_sec1(compressed=True)
         assert len(encoded) == 33
         assert encoded[0] in (0x02, 0x03)
-        decoded = crypto.sec1_decode(encoded)
-        assert decoded == point
+        decoded = secp256k1_curve.sec1_decode(encoded)
+        assert decoded == pt
 
     def test_sec1_encode_decode_uncompressed(self):
         """Test SEC1 uncompressed encode/decode roundtrip."""
-        point = (crypto.Gx, crypto.Gy)
-        encoded = crypto.sec1_encode(point, compressed=False)
+        pt = secp256k1_curve.Point.from_coordinates(secp256k1_curve.Gx, secp256k1_curve.Gy)
+        encoded = pt.to_sec1(compressed=False)
         assert len(encoded) == 65
         assert encoded[0] == 0x04
-        decoded = crypto.sec1_decode(encoded)
-        assert decoded == point
+        decoded = secp256k1_curve.sec1_decode(encoded)
+        assert decoded == pt
 
     @pytest.mark.parametrize(
         "invalid_data,error_match",
@@ -291,4 +286,4 @@ class TestSEC1:
     def test_sec1_decode_invalid(self, invalid_data, error_match):
         """Test SEC1 decoding rejects invalid inputs."""
         with pytest.raises(ValueError, match=error_match):
-            crypto.sec1_decode(invalid_data)
+            secp256k1_curve.sec1_decode(invalid_data)
