@@ -2,7 +2,7 @@ import dataclasses
 import secrets
 import typing as t
 
-from . import crypto
+from . import crypto_utils
 from . import private_key
 from . import secp256k1_curve
 
@@ -49,10 +49,10 @@ class TxInput:
     def serialize(self) -> bytes:
         return (
             self.txid[::-1]
-            + crypto.int_to_le_bytes(self.vout, 4)
-            + crypto.encode_varint(len(self.script_sig))
+            + crypto_utils.int_to_le_bytes(self.vout, 4)
+            + crypto_utils.encode_varint(len(self.script_sig))
             + self.script_sig
-            + crypto.int_to_le_bytes(self.sequence, 4)
+            + crypto_utils.int_to_le_bytes(self.sequence, 4)
         )
 
 
@@ -71,8 +71,8 @@ class TxOutput:
 
     def serialize(self) -> bytes:
         return (
-            crypto.int_to_le_bytes(self.value, 8)
-            + crypto.encode_varint(len(self.script_pubkey))
+            crypto_utils.int_to_le_bytes(self.value, 8)
+            + crypto_utils.encode_varint(len(self.script_pubkey))
             + self.script_pubkey
         )
 
@@ -113,26 +113,26 @@ class Transaction:
 
     def serialize(self, include_witness: bool = True) -> bytes:
         use_witness = include_witness and any(self.witnesses)
-        result = crypto.int_to_le_bytes(self.version, 4)
+        result = crypto_utils.int_to_le_bytes(self.version, 4)
         if use_witness:
             result += b"\x00\x01"
-        result += crypto.encode_varint(len(self.inputs))
+        result += crypto_utils.encode_varint(len(self.inputs))
         for tx_input in self.inputs:
             result += tx_input.serialize()
-        result += crypto.encode_varint(len(self.outputs))
+        result += crypto_utils.encode_varint(len(self.outputs))
         for tx_output in self.outputs:
             result += tx_output.serialize()
         if use_witness:
             for witness in self.witnesses:
-                result += crypto.encode_varint(len(witness))
+                result += crypto_utils.encode_varint(len(witness))
                 for item in witness:
-                    result += crypto.encode_varint(len(item)) + item
-        result += crypto.int_to_le_bytes(self.locktime, 4)
+                    result += crypto_utils.encode_varint(len(item)) + item
+        result += crypto_utils.int_to_le_bytes(self.locktime, 4)
         return result
 
     def txid(self) -> bytes:
         """Return the transaction ID (double-SHA256 of non-witness serialization)."""
-        return crypto.double_sha256(self.serialize(include_witness=False))[::-1]
+        return crypto_utils.double_sha256(self.serialize(include_witness=False))[::-1]
 
     def txid_hex(self) -> str:
         return self.txid().hex()
@@ -179,12 +179,12 @@ def sign_schnorr(
 
     px = pub_point.x.to_bytes(32, byteorder="big")
     d_bytes = d.to_bytes(32, byteorder="big")
-    aux_hash = crypto.tagged_hash("BIP0340/aux", aux_rand)
+    aux_hash = crypto_utils.tagged_hash("BIP0340/aux", aux_rand)
     t_bytes = bytes(a ^ b for a, b in zip(d_bytes, aux_hash))
 
     k0 = (
         int.from_bytes(
-            crypto.tagged_hash("BIP0340/nonce", t_bytes + px + msg),
+            crypto_utils.tagged_hash("BIP0340/nonce", t_bytes + px + msg),
             byteorder="big",
         )
         % secp256k1_curve.SECP256K1_ORDER
@@ -202,7 +202,7 @@ def sign_schnorr(
     rx = r_point.x.to_bytes(32, byteorder="big")
     e = (
         int.from_bytes(
-            crypto.tagged_hash("BIP0340/challenge", rx + px + msg),
+            crypto_utils.tagged_hash("BIP0340/challenge", rx + px + msg),
             byteorder="big",
         )
         % secp256k1_curve.SECP256K1_ORDER
@@ -210,3 +210,61 @@ def sign_schnorr(
 
     s = (k + e * d) % secp256k1_curve.SECP256K1_ORDER
     return rx + s.to_bytes(32, byteorder="big")
+
+
+def taproot_sighash(
+    tx: "Transaction",
+    input_index: int,
+    prevouts: t.Sequence["Prevout"],
+    hash_type: int = 0x00,
+) -> bytes:
+    """
+    Compute the BIP341 key-path sighash digest (Taproot).
+
+    Supports SIGHASH_DEFAULT (0x00) and SIGHASH_ALL (0x01) without annex
+    or script path spends.
+    """
+    if hash_type not in (0x00, 0x01):
+        raise ValueError("Unsupported hash_type (only 0x00 and 0x01 are supported)")
+    if input_index < 0 or input_index >= len(tx.inputs):
+        raise IndexError("input_index out of range")
+    if len(prevouts) != len(tx.inputs):
+        raise ValueError("prevouts length must match number of inputs")
+
+    hash_prevouts = crypto_utils.sha256(
+        b"".join(
+            inp.txid[::-1] + crypto_utils.int_to_le_bytes(inp.vout, 4)
+            for inp in tx.inputs
+        )
+    )
+    hash_amounts = crypto_utils.sha256(
+        b"".join(crypto_utils.int_to_le_bytes(prev.amount, 8) for prev in prevouts)
+    )
+    hash_scriptpubkeys = crypto_utils.sha256(
+        b"".join(
+            crypto_utils.encode_varint(len(prev.script_pubkey)) + prev.script_pubkey
+            for prev in prevouts
+        )
+    )
+    hash_sequences = crypto_utils.sha256(
+        b"".join(crypto_utils.int_to_le_bytes(inp.sequence, 4) for inp in tx.inputs)
+    )
+    hash_outputs = crypto_utils.sha256(b"".join(out.serialize() for out in tx.outputs))
+
+    spend_type = 0x00  # key-path, no annex
+
+    sigmsg = (
+        b"\x00"
+        + bytes([hash_type])
+        + crypto_utils.int_to_le_bytes(tx.version, 4)
+        + crypto_utils.int_to_le_bytes(tx.locktime, 4)
+        + hash_prevouts
+        + hash_amounts
+        + hash_scriptpubkeys
+        + hash_sequences
+        + hash_outputs
+        + bytes([spend_type])
+        + crypto_utils.int_to_le_bytes(input_index, 4)
+    )
+
+    return crypto_utils.tagged_hash("TapSighash", sigmsg)

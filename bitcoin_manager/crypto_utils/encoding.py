@@ -1,33 +1,11 @@
-import hashlib
 import typing as t
 
-if t.TYPE_CHECKING:
-    from . import transaction
+from . import hashing
 
 
 # Base58 alphabet
 B58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
-
-
-def sha256(data: bytes) -> bytes:
-    """
-    Compute SHA256 hash of data.
-
-    Args:
-        data: Bytes to hash
-
-    Returns:
-        SHA256 digest as bytes
-    """
-    digest = hashlib.new("sha256")
-    digest.update(data)
-    return digest.digest()
-
-
-def double_sha256(data: bytes) -> bytes:
-    """Compute double SHA256 hash of data."""
-    return sha256(sha256(data))
 
 
 def int_to_le_bytes(value: int, length: int) -> bytes:
@@ -105,78 +83,6 @@ def base58_decode(value: str) -> bytes:
             break
 
     return b"\x00" * pad + full_bytes
-
-
-def tagged_hash(tag: str, msg: bytes) -> bytes:
-    """
-    Compute BIP340 tagged hash: SHA256(SHA256(tag) || SHA256(tag) || msg).
-
-    Args:
-        tag: Tag string for the hash
-        msg: Message bytes to hash
-
-    Returns:
-        Tagged hash digest as bytess
-    """
-    tag_hash = sha256(tag.encode())
-    return sha256(tag_hash + tag_hash + msg)
-
-
-def taproot_sighash(
-    tx: "transaction.Transaction",
-    input_index: int,
-    prevouts: t.Sequence["transaction.Prevout"],
-    hash_type: int = 0x00,
-) -> bytes:
-    """
-    Compute the BIP341 key-path sighash digest (Taproot).
-
-    Supports SIGHASH_DEFAULT (0x00) and SIGHASH_ALL (0x01) without annex
-    or script path spends.
-    """
-    if hash_type not in (0x00, 0x01):
-        raise ValueError("Unsupported hash_type (only 0x00 and 0x01 are supported)")
-    if input_index < 0 or input_index >= len(tx.inputs):
-        raise IndexError("input_index out of range")
-    if len(prevouts) != len(tx.inputs):
-        raise ValueError("prevouts length must match number of inputs")
-
-    hash_prevouts = sha256(
-        b"".join(
-            inp.txid[::-1] + int_to_le_bytes(inp.vout, 4) for inp in tx.inputs
-        )
-    )
-    hash_amounts = sha256(
-        b"".join(int_to_le_bytes(prev.amount, 8) for prev in prevouts)
-    )
-    hash_scriptpubkeys = sha256(
-        b"".join(
-            encode_varint(len(prev.script_pubkey)) + prev.script_pubkey
-            for prev in prevouts
-        )
-    )
-    hash_sequences = sha256(
-        b"".join(int_to_le_bytes(inp.sequence, 4) for inp in tx.inputs)
-    )
-    hash_outputs = sha256(b"".join(out.serialize() for out in tx.outputs))
-
-    spend_type = 0x00  # key-path, no annex
-
-    sigmsg = (
-        b"\x00"
-        + bytes([hash_type])
-        + int_to_le_bytes(tx.version, 4)
-        + int_to_le_bytes(tx.locktime, 4)
-        + hash_prevouts
-        + hash_amounts
-        + hash_scriptpubkeys
-        + hash_sequences
-        + hash_outputs
-        + bytes([spend_type])
-        + int_to_le_bytes(input_index, 4)
-    )
-
-    return tagged_hash("TapSighash", sigmsg)
 
 
 def bech32_polymod(values: t.List[int]) -> int:
@@ -321,7 +227,7 @@ def wif_to_bytes(wif_str: str) -> bytes:
     # Verify checksum (last 4 bytes)
     payload = decoded[:-4]
     checksum = decoded[-4:]
-    expected_checksum = sha256(sha256(payload))[:4]
+    expected_checksum = hashing.sha256(hashing.sha256(payload))[:4]
     if checksum != expected_checksum:
         raise ValueError("Invalid WIF: checksum mismatch")
 
@@ -354,7 +260,7 @@ def bytes_to_wif(key_bytes: bytes, compressed: bool = False) -> str:
         payload += b"\x01"  # Compression flag
 
     # Calculate checksum (first 4 bytes of double SHA256)
-    checksum = sha256(sha256(payload))[:4]
+    checksum = hashing.sha256(hashing.sha256(payload))[:4]
 
     # Encode to base58
     return base58_encode(payload + checksum)

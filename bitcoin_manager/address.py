@@ -1,4 +1,4 @@
-from . import crypto
+from . import crypto_utils
 from . import secp256k1_curve
 from . import public_key
 
@@ -26,7 +26,7 @@ def get_taproot_address(pubkey: public_key.PublicKey) -> str:
     merkle_root = b""  # Empty for key-path only
 
     # Compute tweak = tagged_hash("TapTweak", internal_pubkey || merkle_root)
-    tweak_hash = crypto.tagged_hash("TapTweak", internal_pubkey + merkle_root)
+    tweak_hash = crypto_utils.tagged_hash("TapTweak", internal_pubkey + merkle_root)
     tweak_int = int.from_bytes(tweak_hash, byteorder="big")
 
     # Compute output key Q = P + tweak*G
@@ -40,6 +40,6 @@ def get_taproot_address(pubkey: public_key.PublicKey) -> str:
     # Encode as Bech32m address (witness version 1)
     # Convert to 5-bit groups for bech32m
     witver = 1
-    witprog = crypto.convertbits(list(output_pubkey), 8, 5)
+    witprog = crypto_utils.convertbits(list(output_pubkey), 8, 5)
 
-    return crypto.bech32_encode("bc", [witver] + witprog, "bech32m")
+    return crypto_utils.bech32_encode("bc", [witver] + witprog, "bech32m")

@@ -1,6 +1,6 @@
 import dataclasses
 
-from . import crypto
+from . import crypto_utils
 from . import secp256k1_curve
 
 
@@ -53,12 +53,12 @@ class PrivateKey:
         )
         # Generate WIF formats
         object.__setattr__(
-            self, "_key_wif", crypto.bytes_to_wif(self._key_bytes, compressed=False)
+            self, "_key_wif", crypto_utils.bytes_to_wif(self._key_bytes, compressed=False)
         )
         object.__setattr__(
             self,
             "_key_wif_compressed",
-            crypto.bytes_to_wif(self._key_bytes, compressed=True),
+            crypto_utils.bytes_to_wif(self._key_bytes, compressed=True),
         )
 
     @classmethod
@@ -88,7 +88,7 @@ class PrivateKey:
     @classmethod
     def from_wif(cls, wif_str: str) -> "PrivateKey":
         """Create from a WIF (Wallet Import Format) string."""
-        key_bytes = crypto.wif_to_bytes(wif_str)
+        key_bytes = crypto_utils.wif_to_bytes(wif_str)
         return cls(key_bytes)
 
     @property
