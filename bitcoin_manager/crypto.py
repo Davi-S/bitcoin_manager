@@ -1,6 +1,9 @@
 import hashlib
 import typing as t
 
+if t.TYPE_CHECKING:
+    from . import transaction
+
 
 # Base58 alphabet
 B58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
@@ -20,6 +23,33 @@ def sha256(data: bytes) -> bytes:
     digest = hashlib.new("sha256")
     digest.update(data)
     return digest.digest()
+
+
+def double_sha256(data: bytes) -> bytes:
+    """Compute double SHA256 hash of data."""
+    return sha256(sha256(data))
+
+
+def int_to_le_bytes(value: int, length: int) -> bytes:
+    """Serialize an integer to little-endian bytes with fixed length."""
+    if value < 0:
+        raise ValueError("Value must be non-negative")
+    return value.to_bytes(length, byteorder="little")
+
+
+def encode_varint(value: int) -> bytes:
+    """Encode an integer as Bitcoin VarInt (CompactSize)."""
+    if value < 0:
+        raise ValueError("VarInt value must be non-negative")
+    if value < 0xFD:
+        return value.to_bytes(1, byteorder="little")
+    if value <= 0xFFFF:
+        return b"\xFD" + int_to_le_bytes(value, 2)
+    if value <= 0xFFFFFFFF:
+        return b"\xFE" + int_to_le_bytes(value, 4)
+    if value <= 0xFFFFFFFFFFFFFFFF:
+        return b"\xFF" + int_to_le_bytes(value, 8)
+    raise ValueError("VarInt value too large")
 
 
 def base58_encode(data: bytes) -> str:
@@ -90,6 +120,63 @@ def tagged_hash(tag: str, msg: bytes) -> bytes:
     """
     tag_hash = sha256(tag.encode())
     return sha256(tag_hash + tag_hash + msg)
+
+
+def taproot_sighash(
+    tx: "transaction.Transaction",
+    input_index: int,
+    prevouts: t.Sequence["transaction.Prevout"],
+    hash_type: int = 0x00,
+) -> bytes:
+    """
+    Compute the BIP341 key-path sighash digest (Taproot).
+
+    Supports SIGHASH_DEFAULT (0x00) and SIGHASH_ALL (0x01) without annex
+    or script path spends.
+    """
+    if hash_type not in (0x00, 0x01):
+        raise ValueError("Unsupported hash_type (only 0x00 and 0x01 are supported)")
+    if input_index < 0 or input_index >= len(tx.inputs):
+        raise IndexError("input_index out of range")
+    if len(prevouts) != len(tx.inputs):
+        raise ValueError("prevouts length must match number of inputs")
+
+    hash_prevouts = sha256(
+        b"".join(
+            inp.txid[::-1] + int_to_le_bytes(inp.vout, 4) for inp in tx.inputs
+        )
+    )
+    hash_amounts = sha256(
+        b"".join(int_to_le_bytes(prev.amount, 8) for prev in prevouts)
+    )
+    hash_scriptpubkeys = sha256(
+        b"".join(
+            encode_varint(len(prev.script_pubkey)) + prev.script_pubkey
+            for prev in prevouts
+        )
+    )
+    hash_sequences = sha256(
+        b"".join(int_to_le_bytes(inp.sequence, 4) for inp in tx.inputs)
+    )
+    hash_outputs = sha256(b"".join(out.serialize() for out in tx.outputs))
+
+    spend_type = 0x00  # key-path, no annex
+
+    sigmsg = (
+        b"\x00"
+        + bytes([hash_type])
+        + int_to_le_bytes(tx.version, 4)
+        + int_to_le_bytes(tx.locktime, 4)
+        + hash_prevouts
+        + hash_amounts
+        + hash_scriptpubkeys
+        + hash_sequences
+        + hash_outputs
+        + bytes([spend_type])
+        + int_to_le_bytes(input_index, 4)
+    )
+
+    return tagged_hash("TapSighash", sigmsg)
 
 
 def bech32_polymod(values: t.List[int]) -> int:
