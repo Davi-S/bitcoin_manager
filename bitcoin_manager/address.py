@@ -50,7 +50,9 @@ class TaprootAddress:
         tweak_hash = crypto_utils.tagged_hash(
             "TapTweak", internal_pubkey + merkle_root
         )
-        tweak_int = int.from_bytes(tweak_hash, byteorder="big")
+        tweak_int = secp256k1_curve.mod_secp256k1_order(
+            int.from_bytes(tweak_hash, byteorder="big")
+        )
         tweak_point = secp256k1_curve.G.multiply(tweak_int)
         output_point = public_key_point.add(tweak_point)
         witness_program = output_point.x.to_bytes(cls._WITNESS_PROGRAM_LEN, "big")
