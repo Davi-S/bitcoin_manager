@@ -117,6 +117,10 @@ class Transaction:
     @property
     def locktime(self) -> int:
         return self._locktime
+    
+    @property
+    def witnesses(self) -> list:
+        return self._witnesses
 
     def set_witness(self, index: int, stack_items: t.Iterable[bytes]) -> None:
         if index < 0 or index >= len(self._inputs):

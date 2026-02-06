@@ -12,6 +12,9 @@ from .encoding import (
     encode_varint,
     int_to_le_bytes,
     wif_to_bytes,
+    sat_to_btc,
+    btc_to_sat,
+    decode_taproot_address,
 )
 from .hashing import double_sha256, sha256, tagged_hash
 
@@ -29,6 +32,9 @@ __all__ = [
     "encode_varint",
     "int_to_le_bytes",
     "wif_to_bytes",
+    "sat_to_btc",
+    "btc_to_sat",
+    "decode_taproot_address",
     "double_sha256",
     "sha256",
     "tagged_hash",

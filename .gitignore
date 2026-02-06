@@ -11,3 +11,4 @@ wheels/
 
 # Testing files
 private_key.txt
+wallet_*.txt
