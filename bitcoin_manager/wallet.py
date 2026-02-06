@@ -55,5 +55,5 @@ class Wallet:
             f"==============\n"
             f"Private Key (WIF): {self._private_key.to_wif_compressed}\n"
             f"Public Key (SEC1): {self.public_key.to_sec1_compressed_raw_bytes.hex()}\n"
-            f"Address (Taproot): {self.address.to_address()}"
+            f"Address (Taproot): {self.address.address}"
         )

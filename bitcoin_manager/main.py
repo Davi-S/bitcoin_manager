@@ -35,7 +35,7 @@ def main():
     def utxo_lookup(txid: bytes, vout: int) -> tx.Prevout:
         if txid != bytes.fromhex(INPUT_TXID) or vout != INPUT_VOUT:
             raise KeyError("Unknown input")
-        script_pubkey = wallet.address.to_scriptpubkey()
+        script_pubkey = wallet.address.scriptpubkey
         return tx.Prevout(amount=INPUT_AMOUNT_SAT, script_pubkey=script_pubkey)
 
     unsigned_tx = tx.UnsignedTransaction(

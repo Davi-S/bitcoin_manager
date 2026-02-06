@@ -4,7 +4,7 @@ Tests for public_key.py - Bitcoin public key handling
 
 import pytest
 
-from bitcoin_manager import secp256k1_curve
+from bitcoin_manager.crypto_utils import secp256k1_curve
 from bitcoin_manager import private_key
 from bitcoin_manager import public_key
 

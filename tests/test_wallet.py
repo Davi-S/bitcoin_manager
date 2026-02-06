@@ -21,7 +21,7 @@ class TestWalletCreation:
 
         assert w.private_key == priv_key
         assert w.public_key is not None
-        assert w.address.to_address().startswith("bc1p")
+        assert w.address.address.startswith("bc1p")
 
     def test_wallet_address_derivation(self):
         """Test that wallet derives correct Taproot address."""
@@ -34,7 +34,7 @@ class TestWalletCreation:
         priv_key = private_key.PrivateKey.from_hex(key_hex)
         w = wallet.Wallet.from_private_key(priv_key)
 
-        assert w.address.to_address() == expected_address
+        assert w.address.address == expected_address
 
     def test_wallet_public_key_derivation(self):
         """Test that wallet derives correct public key from private key."""
@@ -70,7 +70,7 @@ class TestWalletProperties:
         assert w.public_key is not None
         assert w.address is not None
         assert isinstance(w.address, address.TaprootAddress)
-        assert len(w.address.to_address()) > 0
+        assert len(w.address.address) > 0
 
 
 class TestWalletMultipleKeys:
@@ -94,5 +94,5 @@ class TestWalletMultipleKeys:
         priv_key = private_key.PrivateKey.from_hex(hex_key)
         w = wallet.Wallet.from_private_key(priv_key)
 
-        assert w.address.to_address() == expected_address
+        assert w.address.address == expected_address
         assert w.private_key.to_hex == hex_key

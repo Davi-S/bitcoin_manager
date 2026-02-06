@@ -215,9 +215,9 @@ def _resolve_prevout(value: Prevout | tuple[int, bytes]) -> Prevout:
 
 def _output_target_to_script_pubkey(target: OutputTarget) -> bytes:
     if isinstance(target, wallet_module.Wallet):
-        return target.address.to_scriptpubkey()
+        return target.address.scriptpubkey
     if isinstance(target, address.TaprootAddress):
-        return target.to_scriptpubkey()
+        return target.scriptpubkey
     if isinstance(target, bytes):
         return target
     raise TypeError("output target must be Wallet, TaprootAddress, or script_pubkey")
@@ -372,7 +372,7 @@ class UnsignedTransaction:
         return outputs
 
     def sign(self, wallet: wallet_module.Wallet) -> "SignedTransaction":
-        change_script = wallet.address.to_scriptpubkey()
+        change_script = wallet.address.scriptpubkey
         outputs = self._build_outputs(
             change_script_pubkey=change_script if self._uses_change else None
         )

@@ -28,22 +28,22 @@ def test_taproot_address_from_public_key(hex_key, expected_address):
     priv_key = private_key.PrivateKey.from_bytes(key_bytes)
     pub_key = public_key.PublicKey.from_private_key(priv_key)
     result_address = address.TaprootAddress.from_public_key(pub_key)
-    assert result_address.to_address() == expected_address
+    assert result_address.address == expected_address
 
 
 def test_taproot_address_roundtrip_from_address():
     priv_key = private_key.PrivateKey.from_int(1)
     pub_key = public_key.PublicKey.from_private_key(priv_key)
     addr_obj = address.TaprootAddress.from_public_key(pub_key)
-    encoded = addr_obj.to_address()
+    encoded = addr_obj.address
     decoded = address.TaprootAddress.from_address(encoded)
-    assert decoded.to_address() == encoded
+    assert decoded.address == encoded
 
 
 def test_taproot_address_scriptpubkey_roundtrip():
     priv_key = private_key.PrivateKey.from_int(2)
     pub_key = public_key.PublicKey.from_private_key(priv_key)
     addr_obj = address.TaprootAddress.from_public_key(pub_key)
-    script_pubkey = addr_obj.to_scriptpubkey()
-    parsed = address.TaprootAddress.from_address(addr_obj.to_address())
-    assert parsed.to_scriptpubkey() == script_pubkey
+    script_pubkey = addr_obj.scriptpubkey
+    parsed = address.TaprootAddress.from_address(addr_obj.address)
+    assert parsed.scriptpubkey == script_pubkey

@@ -125,7 +125,7 @@ def test_unsigned_transaction_fee_change_and_sign():
     def lookup(txid: bytes, vout: int) -> tx.Prevout:
         assert txid == bytes.fromhex(txid_hex)
         assert vout == 0
-        script_pubkey = wallet.address.to_scriptpubkey()
+        script_pubkey = wallet.address.scriptpubkey
         return tx.Prevout(amount=5000, script_pubkey=script_pubkey)
 
     unsigned = tx.UnsignedTransaction(
