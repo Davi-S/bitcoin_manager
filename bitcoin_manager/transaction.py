@@ -4,6 +4,7 @@ import typing as t
 from . import crypto_utils
 from . import private_key
 from . import secp256k1_curve
+from . import wallet as wallet_module
 
 
 class Prevout:
@@ -45,6 +46,14 @@ class TxInput:
         self._script_sig = script_sig
         self._sequence = sequence
 
+    @classmethod
+    def from_hex(cls, txid_hex: str, vout: int, sequence: int = 0xFFFFFFFF) -> "TxInput":
+        cleaned = txid_hex.strip().lower()
+        cleaned = cleaned.removeprefix("0x")
+        if len(cleaned) != 64:
+            raise ValueError("txid hex must be 32 bytes (64 hex chars)")
+        return cls(bytes.fromhex(cleaned), vout=vout, sequence=sequence)
+    
     @property
     def txid(self) -> bytes:
         return self._txid
@@ -60,14 +69,6 @@ class TxInput:
     @property
     def sequence(self) -> int:
         return self._sequence
-
-    @classmethod
-    def from_hex(cls, txid_hex: str, vout: int, sequence: int = 0xFFFFFFFF) -> "TxInput":
-        cleaned = txid_hex.strip().lower()
-        cleaned = cleaned.removeprefix("0x")
-        if len(cleaned) != 64:
-            raise ValueError("txid hex must be 32 bytes (64 hex chars)")
-        return cls(bytes.fromhex(cleaned), vout=vout, sequence=sequence)
 
     def serialize(self) -> bytes:
         return (
@@ -171,6 +172,299 @@ class Transaction:
 
     def txid_hex(self) -> str:
         return self.txid().hex()
+
+
+UtxoLookup = t.Callable[[bytes, int], t.Union["Prevout", tuple[int, bytes]]]
+InputRef = t.Union["TxInput", t.Tuple[bytes, int], t.Tuple[str, int]]
+OutputTarget = t.Union[wallet_module.Wallet, str, bytes]
+
+
+def _normalize_txid(txid: bytes | str) -> bytes:
+    if isinstance(txid, bytes):
+        if len(txid) != 32:
+            raise ValueError("txid must be 32 bytes")
+        return txid
+    if not isinstance(txid, str):
+        raise TypeError("txid must be bytes or hex string")
+    cleaned = txid.strip().lower().removeprefix("0x")
+    if len(cleaned) != 64:
+        raise ValueError("txid hex must be 32 bytes (64 hex chars)")
+    return bytes.fromhex(cleaned)
+
+
+def _normalize_input_ref(item: InputRef) -> tuple[bytes, int, int]:
+    if isinstance(item, TxInput):
+        return item.txid, item.vout, item.sequence
+    if not isinstance(item, tuple) or len(item) != 2:
+        raise TypeError("input ref must be TxInput or (txid, vout)")
+    txid, vout = item
+    if not isinstance(vout, int) or vout < 0:
+        raise ValueError("vout must be non-negative integer")
+    return _normalize_txid(txid), vout, 0xFFFFFFFF
+
+
+def _resolve_prevout(value: Prevout | tuple[int, bytes]) -> Prevout:
+    if isinstance(value, Prevout):
+        return value
+    if isinstance(value, tuple) and len(value) == 2:
+        amount, script_pubkey = value
+        return Prevout(amount=amount, script_pubkey=script_pubkey)
+    raise TypeError("utxo_lookup must return Prevout or (amount, script_pubkey)")
+
+
+def _output_target_to_script_pubkey(target: OutputTarget) -> bytes:
+    if isinstance(target, wallet_module.Wallet):
+        return crypto_utils.decode_taproot_address(target.address)
+    if isinstance(target, bytes):
+        return target
+    if isinstance(target, str):
+        return crypto_utils.decode_taproot_address(target)
+    raise TypeError("output target must be Wallet, address string, or script_pubkey")
+
+
+def _estimate_vbytes(inputs: t.Sequence[TxInput], outputs: t.Sequence[TxOutput]) -> int:
+    base_tx = Transaction(inputs=inputs, outputs=outputs)
+    base_size = len(base_tx.serialize(include_witness=False))
+    if not inputs:
+        return base_size
+    witness_per_input = 1 + 1 + 64
+    witness_size = 2 + (witness_per_input * len(inputs))
+    weight = base_size * 4 + witness_size
+    return (weight + 3) // 4
+
+
+class UnsignedTransaction:
+    """
+    High-level transaction builder for P2TR key-path spends.
+
+    The user specifies inputs (txid/vout), destination, output amount,
+    and fee rate. The instance estimates size, fee, and change.
+    """
+
+    def __init__(
+        self,
+        inputs: t.Iterable[InputRef],
+        amount_sats: int,
+        output: OutputTarget,
+        fee_rate_sat_vbyte: int,
+        utxo_lookup: UtxoLookup,
+        version: int = 2,
+        locktime: int = 0,
+    ) -> None:
+        if amount_sats <= 0:
+            raise ValueError("amount_sats must be positive")
+        if fee_rate_sat_vbyte <= 0:
+            raise ValueError("fee_rate_sat_vbyte must be positive")
+
+        normalized_inputs = tuple(_normalize_input_ref(item) for item in inputs)
+        if not normalized_inputs:
+            raise ValueError("at least one input is required")
+
+        self._inputs = tuple(
+            TxInput(txid=txid, vout=vout, sequence=sequence)
+            for txid, vout, sequence in normalized_inputs
+        )
+        self._output_script_pubkey = _output_target_to_script_pubkey(output)
+        self._amount_sats = amount_sats
+        self._fee_rate = fee_rate_sat_vbyte
+        self._version = version
+        self._locktime = locktime
+
+        prevouts: list[Prevout] = []
+        for tx_input in self._inputs:
+            prevouts.append(_resolve_prevout(utxo_lookup(tx_input.txid, tx_input.vout)))
+        self._prevouts = tuple(prevouts)
+        self._total_input = sum(prev.amount for prev in self._prevouts)
+
+        self._change_sats = 0
+        self._fee_sats = 0
+        self._estimated_vbytes = 0
+        self._uses_change = False
+        self._compute_fee_and_change()
+
+    @property
+    def inputs(self) -> t.Tuple[TxInput, ...]:
+        return tuple(self._inputs)
+
+    @property
+    def output_script_pubkey(self) -> bytes:
+        return self._output_script_pubkey
+
+    @property
+    def amount_sats(self) -> int:
+        return self._amount_sats
+
+    @property
+    def output_sats(self) -> int:
+        return self._amount_sats
+
+    @property
+    def total_input_sats(self) -> int:
+        return self._total_input
+
+    @property
+    def fee_rate_sat_vbyte(self) -> int:
+        return self._fee_rate
+
+    @property
+    def estimated_vbytes(self) -> int:
+        return self._estimated_vbytes
+
+    @property
+    def fee_sats(self) -> int:
+        return self._fee_sats
+
+    @property
+    def change_sats(self) -> int:
+        return self._change_sats
+
+    @property
+    def uses_change_output(self) -> bool:
+        return self._uses_change
+
+    def _estimate_outputs(self, include_change: bool) -> list[TxOutput]:
+        outputs = [
+            TxOutput(value=self._amount_sats, script_pubkey=self._output_script_pubkey)
+        ]
+        if include_change:
+            change_script = b"\x51\x20" + (b"\x00" * 32)
+            outputs.append(TxOutput(value=0, script_pubkey=change_script))
+        return outputs
+
+    def _compute_fee_and_change(self) -> None:
+        outputs_no_change = self._estimate_outputs(include_change=False)
+        vbytes_no_change = _estimate_vbytes(self._inputs, outputs_no_change)
+        fee_no_change = vbytes_no_change * self._fee_rate
+        change_no_change = self._total_input - self._amount_sats - fee_no_change
+
+        if change_no_change < 0:
+            raise ValueError("insufficient funds for amount and fee")
+
+        self._fee_sats = fee_no_change
+        self._change_sats = max(0, change_no_change)
+        self._estimated_vbytes = vbytes_no_change
+        self._uses_change = change_no_change > 0
+
+        if change_no_change > 0:
+            outputs_with_change = self._estimate_outputs(include_change=True)
+            vbytes_with_change = _estimate_vbytes(self._inputs, outputs_with_change)
+            fee_with_change = vbytes_with_change * self._fee_rate
+            change_with_change = self._total_input - self._amount_sats - fee_with_change
+            if change_with_change > 0:
+                self._fee_sats = fee_with_change
+                self._change_sats = change_with_change
+                self._estimated_vbytes = vbytes_with_change
+                self._uses_change = True
+            else:
+                self._uses_change = False
+
+    def _build_outputs(self, change_script_pubkey: bytes | None = None) -> list[TxOutput]:
+        outputs = [
+            TxOutput(value=self._amount_sats, script_pubkey=self._output_script_pubkey)
+        ]
+        if self._uses_change and self._change_sats > 0:
+            if change_script_pubkey is None:
+                raise ValueError("change_script_pubkey is required for change output")
+            outputs.append(
+                TxOutput(value=self._change_sats, script_pubkey=change_script_pubkey)
+            )
+        return outputs
+
+    def sign(self, wallet: wallet_module.Wallet) -> "SignedTransaction":
+        change_script = crypto_utils.decode_taproot_address(wallet.address)
+        outputs = self._build_outputs(
+            change_script_pubkey=change_script if self._uses_change else None
+        )
+        unsigned = Transaction(
+            version=self._version,
+            locktime=self._locktime,
+            inputs=self._inputs,
+            outputs=outputs,
+        )
+
+        witnesses: list[tuple[bytes, ...]] = []
+        for idx in range(len(unsigned.inputs)):
+            sighash = taproot_sighash(
+                tx=unsigned,
+                input_index=idx,
+                prevouts=self._prevouts,
+                hash_type=0x00,
+            )
+            signature = sign_schnorr(
+                priv_key=wallet.private_key,
+                msg=sighash,
+                merkle_root=b"",
+            )
+            witnesses.append((signature,))
+
+        signed_tx = Transaction(
+            version=unsigned.version,
+            locktime=unsigned.locktime,
+            inputs=unsigned.inputs,
+            outputs=unsigned.outputs,
+            witnesses=witnesses,
+        )
+        return SignedTransaction(
+            transaction=signed_tx,
+            fee_sats=self._fee_sats,
+            change_sats=self._change_sats,
+            estimated_vbytes=self._estimated_vbytes,
+            total_input_sats=self._total_input,
+            output_sats=self._amount_sats,
+        )
+
+
+class SignedTransaction:
+    """Wraps a fully signed Transaction with high-level metadata."""
+
+    def __init__(
+        self,
+        transaction: Transaction,
+        fee_sats: int,
+        change_sats: int,
+        estimated_vbytes: int,
+        total_input_sats: int,
+        output_sats: int,
+    ) -> None:
+        self._transaction = transaction
+        self._fee_sats = fee_sats
+        self._change_sats = change_sats
+        self._estimated_vbytes = estimated_vbytes
+        self._total_input_sats = total_input_sats
+        self._output_sats = output_sats
+
+    @property
+    def transaction(self) -> Transaction:
+        return self._transaction
+
+    @property
+    def fee_sats(self) -> int:
+        return self._fee_sats
+
+    @property
+    def change_sats(self) -> int:
+        return self._change_sats
+
+    @property
+    def estimated_vbytes(self) -> int:
+        return self._estimated_vbytes
+
+    @property
+    def total_input_sats(self) -> int:
+        return self._total_input_sats
+
+    @property
+    def output_sats(self) -> int:
+        return self._output_sats
+
+    def serialize(self, include_witness: bool = True) -> bytes:
+        return self._transaction.serialize(include_witness=include_witness)
+
+    def txid(self) -> bytes:
+        return self._transaction.txid()
+
+    def txid_hex(self) -> str:
+        return self._transaction.txid_hex()
 
 
 def p2tr_scriptpubkey(x_only_pubkey: bytes) -> bytes:

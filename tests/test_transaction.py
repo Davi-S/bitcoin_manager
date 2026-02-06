@@ -6,6 +6,8 @@ import pytest
 
 from bitcoin_manager import crypto_utils
 from bitcoin_manager import transaction as tx
+from bitcoin_manager import wallet as wlt
+from bitcoin_manager import private_key as pv
 
 
 def _sample_input_output():
@@ -113,3 +115,32 @@ def test_external_lists_do_not_mutate_transaction():
     assert transaction.inputs == (tx_input,)
     assert transaction.outputs == (tx_output,)
     assert transaction.witnesses == ((b"sig",),)
+
+
+def test_unsigned_transaction_fee_change_and_sign():
+    priv_key = pv.PrivateKey.from_int(1)
+    wallet = wlt.Wallet.from_private_key(priv_key)
+    txid_hex = "11" * 32
+
+    def lookup(txid: bytes, vout: int) -> tx.Prevout:
+        assert txid == bytes.fromhex(txid_hex)
+        assert vout == 0
+        script_pubkey = crypto_utils.decode_taproot_address(wallet.address)
+        return tx.Prevout(amount=5000, script_pubkey=script_pubkey)
+
+    unsigned = tx.UnsignedTransaction(
+        inputs=[(txid_hex, 0)],
+        amount_sats=1000,
+        output=wallet,
+        fee_rate_sat_vbyte=1,
+        utxo_lookup=lookup,
+    )
+
+    assert unsigned.total_input_sats == 5000
+    assert unsigned.fee_sats == unsigned.estimated_vbytes * 1
+    assert unsigned.change_sats == 5000 - 1000 - unsigned.fee_sats
+
+    signed = unsigned.sign(wallet)
+    assert len(signed.transaction.witnesses) == 1
+    assert len(signed.transaction.witnesses[0]) == 1
+    assert len(signed.transaction.witnesses[0][0]) == 64
