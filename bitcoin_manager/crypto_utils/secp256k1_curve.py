@@ -15,7 +15,7 @@ def mod_secp256k1_order(value: int) -> int:
 
 class Point:
     """Represents a point on the secp256k1 elliptic curve."""
-    
+
     def __init__(self) -> None:
         raise TypeError("Use Point.from_* classmethods for construction")
 
@@ -31,16 +31,16 @@ class Point:
         self._sec1_compressed_cache: bytes | None = None
         self._sec1_uncompressed_cache: bytes | None = None
         self._validate()
-        
+
     def _validate(self) -> None:
         """Validate point coordinates on initialization."""
         if not (0 <= self._x < P and 0 <= self._y < P):
             raise ValueError("Point coordinates out of field range")
 
-        # Check curve equation: y² ≡ x³ + 7 (mod P)
+        # Check curve equation: y^2 = x^3 + 7 (mod P)
         if (self._y * self._y - (self._x * self._x * self._x + 7)) % P != 0:
             raise ValueError("Point is not on the secp256k1 curve")
-        
+
     @classmethod
     def from_coordinates(cls, x: int, y: int) -> "Point":
         """Create a Point from x and y coordinates."""
@@ -99,7 +99,7 @@ class Point:
     @property
     def y(self) -> int:
         return self._y
-    
+
     @property
     def to_sec1_compressed(self) -> bytes:
         """
@@ -127,8 +127,6 @@ class Point:
             y_bytes = self.y.to_bytes(32, byteorder="big")
             self._sec1_uncompressed_cache = b"\x04" + x_bytes + y_bytes
         return self._sec1_uncompressed_cache
-    
- 
 
     def add(self, other: "Point") -> "Point":
         """
@@ -211,5 +209,3 @@ class Point:
 
 # Generator point G for secp256k1
 G = Point.from_coordinates(Gx, Gy)
-
-

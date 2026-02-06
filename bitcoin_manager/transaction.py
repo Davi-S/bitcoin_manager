@@ -4,7 +4,7 @@ import typing as t
 from . import address
 from . import crypto_utils
 from . import private_key
-from . import secp256k1_curve
+from .crypto_utils import secp256k1_curve
 from . import wallet as wallet_module
 
 

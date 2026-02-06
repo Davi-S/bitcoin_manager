@@ -3,7 +3,7 @@ Tests for secp256k1_curve.py - Elliptic curve operations
 """
 
 import pytest
-from bitcoin_manager import secp256k1_curve
+from bitcoin_manager.crypto_utils import secp256k1_curve
 
 
 class TestPointOperations:

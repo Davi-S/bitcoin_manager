@@ -2,7 +2,7 @@ import typing as t
 
 from . import crypto_utils
 from . import public_key
-from . import secp256k1_curve
+from .crypto_utils import secp256k1_curve
 
 
 _TAPROOT_HRP = "bc"

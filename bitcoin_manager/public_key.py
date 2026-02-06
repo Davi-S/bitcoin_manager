@@ -1,6 +1,6 @@
 import typing as t
 
-from . import secp256k1_curve
+from .crypto_utils import secp256k1_curve
 from . import private_key
 
 

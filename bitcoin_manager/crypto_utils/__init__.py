@@ -1,3 +1,4 @@
+from . import secp256k1_curve
 from .encoding import (
     BECH32_CHARSET,
     B58_ALPHABET,
@@ -33,6 +34,7 @@ __all__ = [
     "wif_to_bytes",
     "sat_to_btc",
     "btc_to_sat",
+    "secp256k1_curve",
     "double_sha256",
     "sha256",
     "tagged_hash",

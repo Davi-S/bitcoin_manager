@@ -1,7 +1,7 @@
 import typing as t
 
 from . import crypto_utils
-from . import secp256k1_curve
+from .crypto_utils import secp256k1_curve
 
 
 _KEY_LENGTH_BYTES = 32
