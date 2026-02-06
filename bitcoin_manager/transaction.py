@@ -1,6 +1,7 @@
 import secrets
 import typing as t
 
+from . import address
 from . import crypto_utils
 from . import private_key
 from . import secp256k1_curve
@@ -176,7 +177,7 @@ class Transaction:
 
 UtxoLookup = t.Callable[[bytes, int], t.Union["Prevout", tuple[int, bytes]]]
 InputRef = t.Union["TxInput", t.Tuple[bytes, int], t.Tuple[str, int]]
-OutputTarget = t.Union[wallet_module.Wallet, str, bytes]
+OutputTarget = t.Union[wallet_module.Wallet, address.TaprootAddress, bytes]
 
 
 def _normalize_txid(txid: bytes | str) -> bytes:
@@ -214,12 +215,12 @@ def _resolve_prevout(value: Prevout | tuple[int, bytes]) -> Prevout:
 
 def _output_target_to_script_pubkey(target: OutputTarget) -> bytes:
     if isinstance(target, wallet_module.Wallet):
-        return crypto_utils.decode_taproot_address(target.address)
+        return target.address.to_scriptpubkey()
+    if isinstance(target, address.TaprootAddress):
+        return target.to_scriptpubkey()
     if isinstance(target, bytes):
         return target
-    if isinstance(target, str):
-        return crypto_utils.decode_taproot_address(target)
-    raise TypeError("output target must be Wallet, address string, or script_pubkey")
+    raise TypeError("output target must be Wallet, TaprootAddress, or script_pubkey")
 
 
 def _estimate_vbytes(inputs: t.Sequence[TxInput], outputs: t.Sequence[TxOutput]) -> int:
@@ -371,7 +372,7 @@ class UnsignedTransaction:
         return outputs
 
     def sign(self, wallet: wallet_module.Wallet) -> "SignedTransaction":
-        change_script = crypto_utils.decode_taproot_address(wallet.address)
+        change_script = wallet.address.to_scriptpubkey()
         outputs = self._build_outputs(
             change_script_pubkey=change_script if self._uses_change else None
         )

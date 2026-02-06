@@ -18,7 +18,7 @@ class Wallet:
     def _init_from_private_key(self, priv_key: private_key.PrivateKey) -> None:
         self._private_key = priv_key
         self._public_key_cache: public_key.PublicKey | None = None
-        self._address_cache: str | None = None
+        self._address_cache: address.TaprootAddress | None = None
 
     @classmethod
     def from_private_key(cls, priv_key: private_key.PrivateKey) -> "Wallet":
@@ -40,10 +40,12 @@ class Wallet:
         return self._public_key_cache
 
     @property
-    def address(self) -> str:
-        """Return the Taproot address."""
+    def address(self) -> address.TaprootAddress:
+        """Return the Taproot address object."""
         if self._address_cache is None:
-            self._address_cache = address.get_taproot_address(self.public_key)
+            self._address_cache = address.TaprootAddress.from_public_key(
+                self.public_key
+            )
         return self._address_cache
 
     def __str__(self) -> str:
@@ -53,5 +55,5 @@ class Wallet:
             f"==============\n"
             f"Private Key (WIF): {self._private_key.to_wif_compressed}\n"
             f"Public Key (SEC1): {self.public_key.to_sec1_compressed_raw_bytes.hex()}\n"
-            f"Address (Taproot): {self.address}"
+            f"Address (Taproot): {self.address.to_address()}"
         )

@@ -1,3 +1,4 @@
+from . import address
 from . import private_key as pv
 from . import wallet as wlt
 from . import transaction as tx
@@ -29,17 +30,18 @@ FEE_RATE_SAT_VBYTE = 4
 def main():
     private_key = pv.PrivateKey.from_wif(PRIVATE_KEY_WIF)
     wallet = wlt.Wallet.from_private_key(private_key)
+    destination = address.TaprootAddress.from_address(DESTINATION_ADDRESS)
 
     def utxo_lookup(txid: bytes, vout: int) -> tx.Prevout:
         if txid != bytes.fromhex(INPUT_TXID) or vout != INPUT_VOUT:
             raise KeyError("Unknown input")
-        script_pubkey = crypto_utils.decode_taproot_address(wallet.address)
+        script_pubkey = wallet.address.to_scriptpubkey()
         return tx.Prevout(amount=INPUT_AMOUNT_SAT, script_pubkey=script_pubkey)
 
     unsigned_tx = tx.UnsignedTransaction(
         inputs=[(INPUT_TXID, INPUT_VOUT)],
         amount_sats=SEND_AMOUNT_SAT,
-        output=DESTINATION_ADDRESS,
+        output=destination,
         fee_rate_sat_vbyte=FEE_RATE_SAT_VBYTE,
         utxo_lookup=utxo_lookup,
     )

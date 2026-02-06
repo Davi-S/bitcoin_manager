@@ -3,6 +3,7 @@ Tests for wallet.py - Bitcoin wallet with private key, public key, and address
 """
 
 import pytest
+from bitcoin_manager import address
 from bitcoin_manager import private_key
 from bitcoin_manager import wallet
 
@@ -20,7 +21,7 @@ class TestWalletCreation:
 
         assert w.private_key == priv_key
         assert w.public_key is not None
-        assert w.address.startswith("bc1p")
+        assert w.address.to_address().startswith("bc1p")
 
     def test_wallet_address_derivation(self):
         """Test that wallet derives correct Taproot address."""
@@ -33,7 +34,7 @@ class TestWalletCreation:
         priv_key = private_key.PrivateKey.from_hex(key_hex)
         w = wallet.Wallet.from_private_key(priv_key)
 
-        assert w.address == expected_address
+        assert w.address.to_address() == expected_address
 
     def test_wallet_public_key_derivation(self):
         """Test that wallet derives correct public key from private key."""
@@ -68,8 +69,8 @@ class TestWalletProperties:
         assert w.private_key is not None
         assert w.public_key is not None
         assert w.address is not None
-        assert isinstance(w.address, str)
-        assert len(w.address) > 0
+        assert isinstance(w.address, address.TaprootAddress)
+        assert len(w.address.to_address()) > 0
 
 
 class TestWalletMultipleKeys:
@@ -93,5 +94,5 @@ class TestWalletMultipleKeys:
         priv_key = private_key.PrivateKey.from_hex(hex_key)
         w = wallet.Wallet.from_private_key(priv_key)
 
-        assert w.address == expected_address
+        assert w.address.to_address() == expected_address
         assert w.private_key.to_hex == hex_key
