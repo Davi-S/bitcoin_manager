@@ -50,9 +50,7 @@ def main():
     tx_input = tx.TxInput.from_hex(INPUT_TXID, INPUT_VOUT)
     tx_output = tx.TxOutput(value=output_amount_sat, script_pubkey=dest_script_pubkey)
 
-    transaction = (
-        tx.Transaction().with_input(tx_input).with_output(tx_output)
-    )
+    transaction = tx.Transaction(inputs=[tx_input], outputs=[tx_output])
 
     # Print Unsigned Details
     unsigned_tx_bytes = transaction.serialize(include_witness=False)
@@ -115,7 +113,13 @@ def main():
     )
 
     # Step E: Attach Witness
-    transaction = transaction.with_witness(0, [signature])
+    transaction = tx.Transaction(
+        version=transaction.version,
+        locktime=transaction.locktime,
+        inputs=transaction.inputs,
+        outputs=transaction.outputs,
+        witnesses=[(signature,)],
+    )
 
     # =========================================================================
     # FINAL OUTPUT

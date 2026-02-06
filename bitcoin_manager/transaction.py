@@ -105,7 +105,7 @@ class TxOutput:
 
 
 class Transaction:
-    """Represents a Bitcoin transaction with inputs, outputs, and witnesses."""
+    """Represents an immutable Bitcoin transaction with inputs, outputs, and witnesses."""
 
     def __init__(
         self,
@@ -126,30 +126,6 @@ class Transaction:
         if len(self._witnesses) != len(self._inputs):
             raise ValueError("witnesses length must match number of inputs")
 
-    def add_input(self, tx_input: TxInput) -> "Transaction":
-        return self.with_input(tx_input)
-
-    def add_output(self, tx_output: TxOutput) -> "Transaction":
-        return self.with_output(tx_output)
-
-    def with_input(self, tx_input: TxInput) -> "Transaction":
-        return Transaction(
-            version=self._version,
-            locktime=self._locktime,
-            inputs=self._inputs + (tx_input,),
-            outputs=self._outputs,
-            witnesses=self._witnesses + (tuple(),),
-        )
-
-    def with_output(self, tx_output: TxOutput) -> "Transaction":
-        return Transaction(
-            version=self._version,
-            locktime=self._locktime,
-            inputs=self._inputs,
-            outputs=self._outputs + (tx_output,),
-            witnesses=self._witnesses,
-        )
-
     @property
     def inputs(self) -> t.Tuple[TxInput, ...]:
         return tuple(self._inputs)
@@ -169,24 +145,6 @@ class Transaction:
     @property
     def witnesses(self) -> t.Tuple[t.Tuple[bytes, ...], ...]:
         return tuple(self._witnesses)
-
-    def set_witness(self, index: int, stack_items: t.Iterable[bytes]) -> "Transaction":
-        return self.with_witness(index, stack_items)
-
-    def with_witness(
-        self, index: int, stack_items: t.Iterable[bytes]
-    ) -> "Transaction":
-        if index < 0 or index >= len(self._inputs):
-            raise IndexError("input index out of range")
-        new_witnesses = list(self._witnesses)
-        new_witnesses[index] = tuple(stack_items)
-        return Transaction(
-            version=self._version,
-            locktime=self._locktime,
-            inputs=self._inputs,
-            outputs=self._outputs,
-            witnesses=tuple(new_witnesses),
-        )
 
     def serialize(self, include_witness: bool = True) -> bytes:
         use_witness = include_witness and any(self._witnesses)
