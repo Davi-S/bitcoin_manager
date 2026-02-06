@@ -68,7 +68,7 @@ class TestSEC1:
         pt = secp256k1_curve.Point.from_coordinates(
             secp256k1_curve.Gx, secp256k1_curve.Gy
         )
-        encoded = pt.to_sec1(compressed=True)
+        encoded = pt.to_sec1_compressed
         assert len(encoded) == 33
         assert encoded[0] in (0x02, 0x03)
         decoded = secp256k1_curve.Point.from_sec1(encoded)
@@ -79,7 +79,7 @@ class TestSEC1:
         pt = secp256k1_curve.Point.from_coordinates(
             secp256k1_curve.Gx, secp256k1_curve.Gy
         )
-        encoded = pt.to_sec1(compressed=False)
+        encoded = pt.to_sec1_uncompressed
         assert len(encoded) == 65
         assert encoded[0] == 0x04
         decoded = secp256k1_curve.Point.from_sec1(encoded)

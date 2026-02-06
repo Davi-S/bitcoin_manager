@@ -49,7 +49,7 @@ class TestPublicKeyCreation:
         pt = secp256k1_curve.Point.from_coordinates(
             secp256k1_curve.Gx, secp256k1_curve.Gy
         )
-        sec1_bytes = pt.to_sec1(compressed=True)
+        sec1_bytes = pt.to_sec1_compressed
         pub = public_key.PublicKey.from_sec1(sec1_bytes)
         assert pub.to_point_raw == pt
 
@@ -75,11 +75,7 @@ class TestPublicKeyRepresentations:
 
         assert pub.to_x_only_raw_bytes == x_bytes
         assert pub.to_x_only_even_y_bytes == even_point.x.to_bytes(32, byteorder="big")
-        assert pub.to_sec1_compressed_raw_bytes == pt.to_sec1(compressed=True)
-        assert pub.to_sec1_uncompressed_raw_bytes == pt.to_sec1(compressed=False)
-        assert pub.to_sec1_compressed_even_y_bytes == even_point.to_sec1(
-            compressed=True
-        )
-        assert pub.to_sec1_uncompressed_even_y_bytes == even_point.to_sec1(
-            compressed=False
-        )
+        assert pub.to_sec1_compressed_raw_bytes == pt.to_sec1_compressed
+        assert pub.to_sec1_uncompressed_raw_bytes == pt.to_sec1_uncompressed
+        assert pub.to_sec1_compressed_even_y_bytes == even_point.to_sec1_compressed
+        assert pub.to_sec1_uncompressed_even_y_bytes == even_point.to_sec1_uncompressed

@@ -54,23 +54,6 @@ class TestWalletCreation:
         )
 
 
-class TestWalletImmutability:
-    """Tests for Wallet immutability."""
-
-    def test_wallet_is_frozen(self):
-        """Test that Wallet is immutable (frozen dataclass)."""
-        priv_key = private_key.PrivateKey.from_hex(
-            "7e888e146bcf7d8849ed3d8e1341b3a412172d8c886cf76dcc852900d0c51c3e"
-        )
-        w = wallet.Wallet.from_private_key(priv_key)
-
-        with pytest.raises(AttributeError):
-            w.private_key = private_key.PrivateKey.from_int(12345)
-
-        with pytest.raises(AttributeError):
-            w.address = "bc1pnotvalid"
-
-
 class TestWalletProperties:
     """Tests for Wallet property access."""
 

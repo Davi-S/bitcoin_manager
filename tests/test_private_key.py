@@ -124,14 +124,6 @@ class TestPrivateKeyProperties:
         assert len(pk.to_bits) == 256
         assert all(c in "01" for c in pk.to_bits)
 
-    def test_immutable(self):
-        """Test that PrivateKey is immutable (frozen dataclass)."""
-        pk = private_key.PrivateKey.from_hex(
-            "7e888e146bcf7d8849ed3d8e1341b3a412172d8c886cf76dcc852900d0c51c3e"
-        )
-        with pytest.raises(Exception):  # FrozenInstanceError
-            pk._key_bytes = b"\x00" * 32
-
 
 class TestPrivateKeyHelpers:
     """Tests for helper functions."""

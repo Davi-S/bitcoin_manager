@@ -1,4 +1,3 @@
-import dataclasses
 import secrets
 import typing as t
 
@@ -7,34 +6,60 @@ from . import private_key
 from . import secp256k1_curve
 
 
-@dataclasses.dataclass(frozen=True)
 class Prevout:
     """Represents the details of a spent output (UTXO)."""
 
-    amount: int
-    script_pubkey: bytes
-
-    def __post_init__(self) -> None:
-        if self.amount < 0:
+    def __init__(self, amount: int, script_pubkey: bytes) -> None:
+        if amount < 0:
             raise ValueError("amount must be non-negative")
+        self._amount = amount
+        self._script_pubkey = script_pubkey
+
+    @property
+    def amount(self) -> int:
+        return self._amount
+
+    @property
+    def script_pubkey(self) -> bytes:
+        return self._script_pubkey
 
 
-@dataclasses.dataclass(frozen=True)
 class TxInput:
     """Represents a Bitcoin transaction input."""
 
-    txid: bytes
-    vout: int
-    script_sig: bytes = b""
-    sequence: int = 0xFFFFFFFF
-
-    def __post_init__(self) -> None:
-        if len(self.txid) != 32:
+    def __init__(
+        self,
+        txid: bytes,
+        vout: int,
+        script_sig: bytes = b"",
+        sequence: int = 0xFFFFFFFF,
+    ) -> None:
+        if len(txid) != 32:
             raise ValueError("txid must be 32 bytes")
-        if self.vout < 0:
+        if vout < 0:
             raise ValueError("vout must be non-negative")
-        if self.sequence < 0 or self.sequence > 0xFFFFFFFF:
+        if sequence < 0 or sequence > 0xFFFFFFFF:
             raise ValueError("sequence must be a 32-bit unsigned integer")
+        self._txid = txid
+        self._vout = vout
+        self._script_sig = script_sig
+        self._sequence = sequence
+
+    @property
+    def txid(self) -> bytes:
+        return self._txid
+
+    @property
+    def vout(self) -> int:
+        return self._vout
+
+    @property
+    def script_sig(self) -> bytes:
+        return self._script_sig
+
+    @property
+    def sequence(self) -> int:
+        return self._sequence
 
     @classmethod
     def from_hex(cls, txid_hex: str, vout: int, sequence: int = 0xFFFFFFFF) -> "TxInput":
@@ -54,16 +79,22 @@ class TxInput:
         )
 
 
-@dataclasses.dataclass(frozen=True)
 class TxOutput:
     """Represents a Bitcoin transaction output."""
 
-    value: int
-    script_pubkey: bytes
-
-    def __post_init__(self) -> None:
-        if self.value < 0:
+    def __init__(self, value: int, script_pubkey: bytes) -> None:
+        if value < 0:
             raise ValueError("value must be non-negative")
+        self._value = value
+        self._script_pubkey = script_pubkey
+
+    @property
+    def value(self) -> int:
+        return self._value
+
+    @property
+    def script_pubkey(self) -> bytes:
+        return self._script_pubkey
 
     def serialize(self) -> bytes:
         return (
@@ -86,21 +117,38 @@ class Transaction:
     ) -> None:
         self._version = version
         self._locktime = locktime
-        self._inputs = list(inputs) if inputs else []
-        self._outputs = list(outputs) if outputs else []
+        self._inputs = tuple(inputs) if inputs else tuple()
+        self._outputs = tuple(outputs) if outputs else tuple()
         if witnesses is None:
-            self._witnesses = [[] for _ in self._inputs]
+            self._witnesses = tuple(tuple() for _ in self._inputs)
         else:
-            self._witnesses = [list(w) for w in witnesses]
+            self._witnesses = tuple(tuple(w) for w in witnesses)
         if len(self._witnesses) != len(self._inputs):
             raise ValueError("witnesses length must match number of inputs")
 
-    def add_input(self, tx_input: TxInput) -> None:
-        self._inputs.append(tx_input)
-        self._witnesses.append([])
+    def add_input(self, tx_input: TxInput) -> "Transaction":
+        return self.with_input(tx_input)
 
-    def add_output(self, tx_output: TxOutput) -> None:
-        self._outputs.append(tx_output)
+    def add_output(self, tx_output: TxOutput) -> "Transaction":
+        return self.with_output(tx_output)
+
+    def with_input(self, tx_input: TxInput) -> "Transaction":
+        return Transaction(
+            version=self._version,
+            locktime=self._locktime,
+            inputs=self._inputs + (tx_input,),
+            outputs=self._outputs,
+            witnesses=self._witnesses + (tuple(),),
+        )
+
+    def with_output(self, tx_output: TxOutput) -> "Transaction":
+        return Transaction(
+            version=self._version,
+            locktime=self._locktime,
+            inputs=self._inputs,
+            outputs=self._outputs + (tx_output,),
+            witnesses=self._witnesses,
+        )
 
     @property
     def inputs(self) -> t.Tuple[TxInput, ...]:
@@ -119,13 +167,26 @@ class Transaction:
         return self._locktime
     
     @property
-    def witnesses(self) -> list:
-        return self._witnesses
+    def witnesses(self) -> t.Tuple[t.Tuple[bytes, ...], ...]:
+        return tuple(self._witnesses)
 
-    def set_witness(self, index: int, stack_items: t.Iterable[bytes]) -> None:
+    def set_witness(self, index: int, stack_items: t.Iterable[bytes]) -> "Transaction":
+        return self.with_witness(index, stack_items)
+
+    def with_witness(
+        self, index: int, stack_items: t.Iterable[bytes]
+    ) -> "Transaction":
         if index < 0 or index >= len(self._inputs):
             raise IndexError("input index out of range")
-        self._witnesses[index] = list(stack_items)
+        new_witnesses = list(self._witnesses)
+        new_witnesses[index] = tuple(stack_items)
+        return Transaction(
+            version=self._version,
+            locktime=self._locktime,
+            inputs=self._inputs,
+            outputs=self._outputs,
+            witnesses=tuple(new_witnesses),
+        )
 
     def serialize(self, include_witness: bool = True) -> bytes:
         use_witness = include_witness and any(self._witnesses)

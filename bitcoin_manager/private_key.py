@@ -1,4 +1,4 @@
-import dataclasses
+import typing as t
 
 from . import crypto_utils
 from . import secp256k1_curve
@@ -28,55 +28,47 @@ def _normalize_bits(bits: str) -> str:
     return cleaned
 
 
-@dataclasses.dataclass(frozen=True)
 class PrivateKey:
     """Represents a Bitcoin private key."""
 
-    _key_bytes: bytes
-    _key_int: int = dataclasses.field(init=False, repr=False)
-    _key_hex: str = dataclasses.field(init=False, repr=False)
-    _key_bits: str = dataclasses.field(init=False, repr=False)
-    _key_wif: str = dataclasses.field(init=False, repr=False)
-    _key_wif_compressed: str = dataclasses.field(init=False, repr=False)
+    def __init__(self) -> None:
+        raise TypeError("Use PrivateKey.from_* classmethods for construction")
 
-    def __post_init__(self) -> None:
-        if len(self._key_bytes) != _KEY_LENGTH_BYTES:
+    @classmethod
+    def _from_bytes(cls, key_bytes: bytes) -> "PrivateKey":
+        instance = object.__new__(cls)
+        instance._init_from_bytes(key_bytes)
+        return instance
+
+    def _init_from_bytes(self, key_bytes: bytes) -> None:
+        if len(key_bytes) != _KEY_LENGTH_BYTES:
             raise ValueError("Private key must be exactly 32 bytes")
-        key_int = int.from_bytes(self._key_bytes, byteorder="big")
+        key_int = int.from_bytes(key_bytes, byteorder="big")
         if not (1 <= key_int < secp256k1_curve.SECP256K1_ORDER):
             raise ValueError("Private key is out of valid secp256k1 range")
-        object.__setattr__(self, "_key_bytes", self._key_bytes)
-        object.__setattr__(self, "_key_int", key_int)
-        object.__setattr__(self, "_key_hex", self._key_bytes.hex())
-        object.__setattr__(
-            self, "_key_bits", bin(key_int)[2:].rjust(_KEY_LENGTH_BYTES * 8, "0")
-        )
-        # Generate WIF formats
-        object.__setattr__(
-            self, "_key_wif", crypto_utils.bytes_to_wif(self._key_bytes, compressed=False)
-        )
-        object.__setattr__(
-            self,
-            "_key_wif_compressed",
-            crypto_utils.bytes_to_wif(self._key_bytes, compressed=True),
-        )
+        self._key_bytes = key_bytes
+        self._key_int_cache: t.Optional[int] = None
+        self._key_hex_cache: t.Optional[str] = None
+        self._key_bits_cache: t.Optional[str] = None
+        self._key_wif_cache: t.Optional[str] = None
+        self._key_wif_compressed_cache: t.Optional[str] = None
 
     @classmethod
     def from_bytes(cls, key_bytes: bytes) -> "PrivateKey":
         """Create from 32 raw bytes."""
-        return cls(key_bytes)
+        return cls._from_bytes(key_bytes)
 
     @classmethod
     def from_int(cls, key_int: int) -> "PrivateKey":
         """Create from an integer."""
         key_bytes = key_int.to_bytes(_KEY_LENGTH_BYTES, byteorder="big")
-        return cls(key_bytes)
+        return cls._from_bytes(key_bytes)
 
     @classmethod
     def from_hex(cls, hex_str: str) -> "PrivateKey":
         """Create from a hex string (with or without 0x prefix)."""
         normalized = _normalize_hex(hex_str)
-        return cls(bytes.fromhex(normalized))
+        return cls._from_bytes(bytes.fromhex(normalized))
 
     @classmethod
     def from_bits(cls, bits: str) -> "PrivateKey":
@@ -89,7 +81,7 @@ class PrivateKey:
     def from_wif(cls, wif_str: str) -> "PrivateKey":
         """Create from a WIF (Wallet Import Format) string."""
         key_bytes = crypto_utils.wif_to_bytes(wif_str)
-        return cls(key_bytes)
+        return cls._from_bytes(key_bytes)
 
     @property
     def to_bytes(self) -> bytes:
@@ -99,28 +91,42 @@ class PrivateKey:
     @property
     def to_int(self) -> int:
         """Return the key as an integer."""
-        return self._key_int
+        if self._key_int_cache is None:
+            self._key_int_cache = int.from_bytes(self._key_bytes, byteorder="big")
+        return self._key_int_cache
 
     @property
     def to_hex(self) -> str:
         """Return the key as a 64-char hex string."""
-        return self._key_hex
+        if self._key_hex_cache is None:
+            self._key_hex_cache = self._key_bytes.hex()
+        return self._key_hex_cache
 
     @property
     def to_bits(self) -> str:
         """Return the key as a 256-bit string."""
-        return self._key_bits
+        if self._key_bits_cache is None:
+            self._key_bits_cache = bin(self.to_int)[2:].rjust(_KEY_LENGTH_BYTES * 8, "0")
+        return self._key_bits_cache
 
     @property
     def to_wif(self) -> str:
         """Return the key as an uncompressed WIF string."""
-        return self._key_wif
+        if self._key_wif_cache is None:
+            self._key_wif_cache = crypto_utils.bytes_to_wif(
+                self._key_bytes, compressed=False
+            )
+        return self._key_wif_cache
 
     @property
     def to_wif_compressed(self) -> str:
         """Return the key as a compressed WIF string."""
-        return self._key_wif_compressed
+        if self._key_wif_compressed_cache is None:
+            self._key_wif_compressed_cache = crypto_utils.bytes_to_wif(
+                self._key_bytes, compressed=True
+            )
+        return self._key_wif_compressed_cache
 
     def __str__(self) -> str:
         """Return the WIF compressed format of the private key."""
-        return self._key_wif_compressed
+        return self.to_wif_compressed
