@@ -192,6 +192,10 @@ class Point:
 
         return result
 
+    def negate(self) -> "Point":
+        """Return the negation of this point."""
+        return Point.from_coordinates(self.x, P - self.y)
+
     def __eq__(self, other: object) -> bool:
         """Check equality with another Point."""
         if not isinstance(other, Point):

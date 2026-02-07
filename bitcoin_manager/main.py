@@ -73,6 +73,7 @@ def main():
     print("TRANSACTION DETAILS")
     print("=" * 80)
     print(f"Change Amount: {signed_tx.change_sats} sats")
+    print(f"Change Amount: {signed_tx.fee_sats} sats")
 
 
 if __name__ == "__main__":
