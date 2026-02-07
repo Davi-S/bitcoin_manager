@@ -9,19 +9,19 @@ from . import wallet as wlt
 # ============================================================================
 
 # Private key (WIF format)
-PRIVATE_KEY_WIF = "L3MGEFczMrbmTARqgF8mxPddk8dxsskp226CwscATPQZAGMXRyS3"
+PRIVATE_KEY_WIF = "KyFiruDqzurHBHs4QcdU9SkAFd9Ad3xaUP7R84AtFU4sJ8a48hyQ"
 
 # Input transaction details
-INPUT_TXID = "470ede9d9dfb486e8b36dcf8f7478e90fca98f7151e5f7502adb226d2e0879d4"
-INPUT_VOUT = 41 
-INPUT_AMOUNT_SAT = 14484
+INPUT_TXID = "aaf28ac10058ae51aa390b3a6d4320a70471e53eb6829697a4c979bc77b9cfb8"
+INPUT_VOUT = 0 
+INPUT_AMOUNT_SAT = 11363
 
 # Output details
-DESTINATION_ADDRESS = "bc1p6l0kx4fnqavqptlv0zv9n5qnmm6cm2famq2nrxcec7lfc6k00vvs5p0tms"
-SEND_AMOUNT_SAT = 10_000
+DESTINATION_ADDRESS = "bc1p77n8yxsul45wwzwzemzxeyk89hen4w9526pjhy0dfr2xeexm32xs9fm84x"
+SEND_AMOUNT_SAT = 10000
 
 # Fee configuration
-FEE_RATE_SAT_VBYTE = 4
+FEE_RATE_SAT_VBYTE = 2
 
 # ============================================================================
 def main():
@@ -52,7 +52,8 @@ def main():
     print("=" * 80)
     print("UNSIGNED TRANSACTION")
     print("=" * 80)
-    print(f"{unsigned_tx.txid_hex}")
+    print(f"TXID: {unsigned_tx.txid_hex}")
+    print(f"To Broadcast: {unsigned_tx.raw_hex}")
     print()
 
     signed_tx = tx.TaprootSigner.sign_keypath(
@@ -65,6 +66,7 @@ def main():
     print("SIGNED TRANSACTION (Ready to Broadcast)")
     print("=" * 80)
     print(f"TXID: {signed_tx.txid_hex}")
+    print(f"To Broadcast: {signed_tx.raw_hex}")
     print()
 
     print("=" * 80)
