@@ -18,7 +18,7 @@ INPUT_AMOUNT_SAT = 11363
 
 # Output details
 DESTINATION_ADDRESS = "bc1p77n8yxsul45wwzwzemzxeyk89hen4w9526pjhy0dfr2xeexm32xs9fm84x"
-SEND_AMOUNT_SAT = 10000
+SEND_AMOUNT_SAT = 5000
 
 # Fee configuration
 FEE_RATE_SAT_VBYTE = 2
@@ -72,8 +72,8 @@ def main():
     print("=" * 80)
     print("TRANSACTION DETAILS")
     print("=" * 80)
-    print(f"Change Amount: {unsigned_tx.change_sats} sats")
-    print(f"Fee: {unsigned_tx.fee_sats} sat")
+    print(f"Change Amount: {signed_tx.change_sats} sats")
+    print(f"Fee: {signed_tx.fee_sats} sat")
 
 
 if __name__ == "__main__":
