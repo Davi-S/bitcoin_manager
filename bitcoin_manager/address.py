@@ -31,12 +31,12 @@ class TaprootAddress:
         self._address_cache: t.Optional[str] = None
         self._scriptpubkey_cache: t.Optional[bytes] = None
         self._validate()
-        
+
     def _validate(self) -> None:
         """Validate the Taproot address data."""
         if len(self._witness_program) != self._WITNESS_PROGRAM_LEN:
             raise ValueError("Taproot witness program must be 32 bytes")
-        
+
     @classmethod
     def from_public_key(
         cls, pubkey: public_key.PublicKey, merkle_root: bytes = b""
@@ -47,9 +47,7 @@ class TaprootAddress:
 
         public_key_point = pubkey.to_point_even_y
         internal_pubkey = pubkey.to_x_only_even_y_bytes
-        tweak_hash = crypto_utils.tagged_hash(
-            "TapTweak", internal_pubkey + merkle_root
-        )
+        tweak_hash = crypto_utils.tagged_hash("TapTweak", internal_pubkey + merkle_root)
         tweak_int = secp256k1_curve.mod_secp256k1_order(
             int.from_bytes(tweak_hash, byteorder="big")
         )
@@ -125,9 +123,7 @@ class TaprootAddress:
         if self._address_cache is None:
             witprog = crypto_utils.convertbits(list(self._witness_program), 8, 5)
             data = [self._WITNESS_VERSION] + witprog
-            self._address_cache = crypto_utils.bech32_encode(
-                self._HRP, data, "bech32m"
-            )
+            self._address_cache = crypto_utils.bech32_encode(self._HRP, data, "bech32m")
         return self._address_cache
 
     @property

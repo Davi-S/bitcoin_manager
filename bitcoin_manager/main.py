@@ -13,7 +13,7 @@ PRIVATE_KEY_WIF = "KyFiruDqzurHBHs4QcdU9SkAFd9Ad3xaUP7R84AtFU4sJ8a48hyQ"
 
 # Input transaction details
 INPUT_TXID = "aaf28ac10058ae51aa390b3a6d4320a70471e53eb6829697a4c979bc77b9cfb8"
-INPUT_VOUT = 0 
+INPUT_VOUT = 0
 INPUT_AMOUNT_SAT = 11363
 
 # Output details
@@ -22,6 +22,7 @@ SEND_AMOUNT_SAT = 5000
 
 # Fee configuration
 FEE_SAT = 248
+
 
 # ============================================================================
 def main():
@@ -35,14 +36,16 @@ def main():
             prevout_script_pubkey=wallet.address.scriptpubkey,
         )
     ]
-    
+
     outputs = [
         tx.TransactionOutput(
             value_sats=SEND_AMOUNT_SAT,
-            script_pubkey=address.TaprootAddress.from_address(DESTINATION_ADDRESS).scriptpubkey
+            script_pubkey=address.TaprootAddress.from_address(
+                DESTINATION_ADDRESS
+            ).scriptpubkey,
         )
     ]
-    
+
     unsigned_tx = tx.Transaction(
         inputs=inputs,
         outputs=outputs,
@@ -57,9 +60,7 @@ def main():
     print()
 
     signed_tx = tx.TaprootSigner.sign_keypath(
-        transaction=unsigned_tx,
-        input_index=0,
-        priv_key=wallet.private_key
+        transaction=unsigned_tx, input_index=0, priv_key=wallet.private_key
     )
 
     print("=" * 80)
@@ -78,3 +79,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

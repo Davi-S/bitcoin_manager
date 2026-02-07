@@ -92,21 +92,27 @@ class PublicKey:
     def to_sec1_uncompressed_raw_bytes(self) -> bytes:
         """Return the SEC1 uncompressed public key bytes (raw point)."""
         if self._sec1_uncompressed_raw_bytes_cache is None:
-            self._sec1_uncompressed_raw_bytes_cache = self._point_raw.to_sec1_uncompressed
+            self._sec1_uncompressed_raw_bytes_cache = (
+                self._point_raw.to_sec1_uncompressed
+            )
         return self._sec1_uncompressed_raw_bytes_cache
 
     @property
     def to_sec1_compressed_even_y_bytes(self) -> bytes:
         """Return the SEC1 compressed public key bytes (even-Y point)."""
         if self._sec1_compressed_even_y_bytes_cache is None:
-            self._sec1_compressed_even_y_bytes_cache = self._get_point_even_y().to_sec1_compressed
+            self._sec1_compressed_even_y_bytes_cache = (
+                self._get_point_even_y().to_sec1_compressed
+            )
         return self._sec1_compressed_even_y_bytes_cache
 
     @property
     def to_sec1_uncompressed_even_y_bytes(self) -> bytes:
         """Return the SEC1 uncompressed public key bytes (even-Y point)."""
         if self._sec1_uncompressed_even_y_bytes_cache is None:
-            self._sec1_uncompressed_even_y_bytes_cache = self._get_point_even_y().to_sec1_uncompressed
+            self._sec1_uncompressed_even_y_bytes_cache = (
+                self._get_point_even_y().to_sec1_uncompressed
+            )
         return self._sec1_uncompressed_even_y_bytes_cache
 
     def __str__(self) -> str:

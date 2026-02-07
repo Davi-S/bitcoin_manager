@@ -7,7 +7,6 @@ DUST_LIMIT_P2TR = 330
 SIGHASH_DEFAULT = 0x00
 
 
-
 def _normalize_txid(txid: bytes | str) -> bytes:
     if isinstance(txid, bytes):
         if len(txid) != 32:
@@ -123,10 +122,11 @@ class TransactionOutput:
     @property
     def script_pubkey(self) -> bytes:
         return self._script_pubkey
-    
+
 
 class Transaction:
     """Represents an immutable SegWit transaction."""
+
     VERSION = 2
     MARKER = 0x00
     FLAG = 0x01
@@ -273,6 +273,7 @@ class Transaction:
     def outputs(self) -> tuple[TransactionOutput, ...]:
         return tuple(self._outputs)
 
+
 class TaprootSigner:
     """Sign Taproot key-path inputs."""
 
@@ -320,10 +321,13 @@ class TaprootSigner:
         aux = b"\x00" * 32
         aux_hash = crypto_utils.tagged_hash("BIP0340/aux", aux)
         t = bytes(a ^ b for a, b in zip(d_bytes, aux_hash))
-        k0 = int.from_bytes(
-            crypto_utils.tagged_hash("BIP0340/nonce", t + pubkey_x + msg32),
-            byteorder="big",
-        ) % n
+        k0 = (
+            int.from_bytes(
+                crypto_utils.tagged_hash("BIP0340/nonce", t + pubkey_x + msg32),
+                byteorder="big",
+            )
+            % n
+        )
         if k0 == 0:
             raise ValueError("invalid nonce")
 
@@ -333,10 +337,15 @@ class TaprootSigner:
             r_point = r_point.negate()
 
         r_bytes = r_point.x.to_bytes(32, byteorder="big")
-        e = int.from_bytes(
-            crypto_utils.tagged_hash("BIP0340/challenge", r_bytes + pubkey_x + msg32),
-            byteorder="big",
-        ) % n
+        e = (
+            int.from_bytes(
+                crypto_utils.tagged_hash(
+                    "BIP0340/challenge", r_bytes + pubkey_x + msg32
+                ),
+                byteorder="big",
+            )
+            % n
+        )
         s = (k0 + e * d) % n
         return r_bytes + s.to_bytes(32, byteorder="big")
 
@@ -372,9 +381,7 @@ class TaprootSigner:
             )
         )
         hash_sequences = crypto_utils.sha256(
-            b"".join(
-                crypto_utils.int_to_le_bytes(txin.sequence, 4) for txin in inputs
-            )
+            b"".join(crypto_utils.int_to_le_bytes(txin.sequence, 4) for txin in inputs)
         )
         hash_outputs = crypto_utils.sha256(
             b"".join(
@@ -414,9 +421,7 @@ class TaprootSigner:
         if not isinstance(priv_key, pv.PrivateKey):
             raise TypeError("priv_key must be a PrivateKey instance")
 
-        sighash = TaprootSigner._taproot_sighash(
-            transaction, input_index, sighash_type
-        )
+        sighash = TaprootSigner._taproot_sighash(transaction, input_index, sighash_type)
         tweaked_key, pubkey_x = TaprootSigner._taproot_tweak_seckey(priv_key)
         signature = TaprootSigner._schnorr_sign(sighash, tweaked_key, pubkey_x)
         if sighash_type != SIGHASH_DEFAULT:
@@ -430,3 +435,4 @@ class TaprootSigner:
             outputs=list(transaction.outputs),
             fee_sats=transaction.fee_sats,
         )
+

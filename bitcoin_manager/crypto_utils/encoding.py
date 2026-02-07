@@ -24,11 +24,11 @@ def encode_varint(value: int) -> bytes:
     if value < 0xFD:
         return value.to_bytes(1, byteorder="little")
     if 0xFD <= value <= 0xFFFF:
-        return b"\xFD" + int_to_le_bytes(value, 2)
+        return b"\xfd" + int_to_le_bytes(value, 2)
     if value <= 0xFFFFFFFF:
-        return b"\xFE" + int_to_le_bytes(value, 4)
+        return b"\xfe" + int_to_le_bytes(value, 4)
     if value <= 0xFFFFFFFFFFFFFFFF:
-        return b"\xFF" + int_to_le_bytes(value, 8)
+        return b"\xff" + int_to_le_bytes(value, 8)
     raise ValueError("VarInt value too large")
 
 
@@ -292,7 +292,3 @@ def btc_to_sat(btc: float) -> int:
         Amount in satoshis (rounded down)
     """
     return int(btc * 100_000_000)
-
- 
-
-

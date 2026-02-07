@@ -106,7 +106,9 @@ class PrivateKey:
     def to_bits(self) -> str:
         """Return the key as a 256-bit string."""
         if self._key_bits_cache is None:
-            self._key_bits_cache = bin(self.to_int)[2:].rjust(_KEY_LENGTH_BYTES * 8, "0")
+            self._key_bits_cache = bin(self.to_int)[2:].rjust(
+                _KEY_LENGTH_BYTES * 8, "0"
+            )
         return self._key_bits_cache
 
     @property
