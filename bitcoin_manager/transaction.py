@@ -41,6 +41,140 @@ def _validate_script_pubkey(script_pubkey: bytes) -> None:
         raise ValueError("script_pubkey must not be empty")
 
 
+def _int_to_32_bytes(value: int) -> bytes:
+    return value.to_bytes(32, byteorder="big")
+
+
+def _negate_point(point: crypto_utils.secp256k1_curve.Point) -> crypto_utils.secp256k1_curve.Point:
+    return crypto_utils.secp256k1_curve.Point.from_coordinates(
+        point.x, crypto_utils.secp256k1_curve.P - point.y
+    )
+
+
+def _taproot_tweak_seckey(
+    priv_key: pv.PrivateKey, merkle_root: bytes = b""
+) -> tuple[int, bytes]:
+    if merkle_root not in (b"",) and len(merkle_root) != 32:
+        raise ValueError("merkle_root must be 32 bytes or empty")
+
+    n = crypto_utils.secp256k1_curve.SECP256K1_ORDER
+    d = priv_key.to_int
+    internal_point = crypto_utils.secp256k1_curve.G.multiply(d)
+    if internal_point.y % 2 != 0:
+        d = n - d
+        internal_point = _negate_point(internal_point)
+
+    internal_pubkey = internal_point.x.to_bytes(32, byteorder="big")
+    tweak_hash = crypto_utils.tagged_hash("TapTweak", internal_pubkey + merkle_root)
+    tweak = int.from_bytes(tweak_hash, byteorder="big") % n
+    tweaked = (d + tweak) % n
+    if tweaked == 0:
+        raise ValueError("invalid tweaked private key")
+
+    tweaked_point = crypto_utils.secp256k1_curve.G.multiply(tweaked)
+    if tweaked_point.y % 2 != 0:
+        tweaked = n - tweaked
+        tweaked_point = _negate_point(tweaked_point)
+
+    return tweaked, tweaked_point.x.to_bytes(32, byteorder="big")
+
+
+def _schnorr_sign(msg32: bytes, seckey_int: int, pubkey_x: bytes) -> bytes:
+    if len(msg32) != 32:
+        raise ValueError("message must be 32 bytes")
+    if len(pubkey_x) != 32:
+        raise ValueError("pubkey_x must be 32 bytes")
+
+    n = crypto_utils.secp256k1_curve.SECP256K1_ORDER
+    d = seckey_int % n
+    if d == 0:
+        raise ValueError("invalid private key")
+
+    d_bytes = _int_to_32_bytes(d)
+    aux = b"\x00" * 32
+    aux_hash = crypto_utils.tagged_hash("BIP0340/aux", aux)
+    t = bytes(a ^ b for a, b in zip(d_bytes, aux_hash))
+    k0 = int.from_bytes(
+        crypto_utils.tagged_hash("BIP0340/nonce", t + pubkey_x + msg32),
+        byteorder="big",
+    ) % n
+    if k0 == 0:
+        raise ValueError("invalid nonce")
+
+    r_point = crypto_utils.secp256k1_curve.G.multiply(k0)
+    if r_point.y % 2 != 0:
+        k0 = n - k0
+        r_point = _negate_point(r_point)
+
+    r_bytes = r_point.x.to_bytes(32, byteorder="big")
+    e = int.from_bytes(
+        crypto_utils.tagged_hash("BIP0340/challenge", r_bytes + pubkey_x + msg32),
+        byteorder="big",
+    ) % n
+    s = (k0 + e * d) % n
+    return r_bytes + _int_to_32_bytes(s)
+
+
+def _taproot_sighash(
+    transaction: "Transaction", input_index: int, sighash_type: int
+) -> bytes:
+    if sighash_type != SIGHASH_DEFAULT:
+        raise NotImplementedError("only SIGHASH_DEFAULT is supported")
+    if input_index < 0 or input_index >= len(transaction._inputs):
+        raise IndexError("input_index out of range")
+
+    inputs = transaction._inputs
+    outputs = transaction._outputs
+
+    hash_prevouts = crypto_utils.sha256(
+        b"".join(
+            txin.txid + crypto_utils.int_to_le_bytes(txin.vout, 4) for txin in inputs
+        )
+    )
+    hash_amounts = crypto_utils.sha256(
+        b"".join(
+            crypto_utils.int_to_le_bytes(txin.prevout_value_sats, 8) for txin in inputs
+        )
+    )
+    hash_script_pubkeys = crypto_utils.sha256(
+        b"".join(
+            crypto_utils.encode_varint(len(txin.prevout_script_pubkey))
+            + txin.prevout_script_pubkey
+            for txin in inputs
+        )
+    )
+    hash_sequences = crypto_utils.sha256(
+        b"".join(
+            crypto_utils.int_to_le_bytes(txin.sequence, 4) for txin in inputs
+        )
+    )
+    hash_outputs = crypto_utils.sha256(
+        b"".join(
+            crypto_utils.int_to_le_bytes(txout.value_sats, 8)
+            + crypto_utils.encode_varint(len(txout.script_pubkey))
+            + txout.script_pubkey
+            for txout in outputs
+        )
+    )
+
+    message = b"".join(
+        [
+            b"\x00",
+            bytes([sighash_type]),
+            crypto_utils.int_to_le_bytes(transaction.VERSION, 4),
+            crypto_utils.int_to_le_bytes(transaction.LOCKTIME, 4),
+            hash_prevouts,
+            hash_amounts,
+            hash_script_pubkeys,
+            hash_sequences,
+            hash_outputs,
+            b"\x00",
+            crypto_utils.int_to_le_bytes(input_index, 4),
+        ]
+    )
+    return crypto_utils.tagged_hash("TapSighash", message)
+
+
 class TransactionInput:
     """Represents a Bitcoin transaction input with embedded prevout data."""
 
@@ -257,5 +391,22 @@ class TaprootSigner:
         priv_key: pv.PrivateKey,
         sighash_type: int = SIGHASH_DEFAULT,
     ) -> Transaction:
-        # Will create another identical transaction, but with the input signed
-        ...
+        if not isinstance(transaction, Transaction):
+            raise TypeError("transaction must be a Transaction instance")
+        if not isinstance(priv_key, pv.PrivateKey):
+            raise TypeError("priv_key must be a PrivateKey instance")
+
+        sighash = _taproot_sighash(transaction, input_index, sighash_type)
+        tweaked_key, pubkey_x = _taproot_tweak_seckey(priv_key)
+        signature = _schnorr_sign(sighash, tweaked_key, pubkey_x)
+        if sighash_type != SIGHASH_DEFAULT:
+            signature += bytes([sighash_type])
+
+        inputs = list(transaction._inputs)
+        inputs[input_index] = inputs[input_index].with_witness([signature])
+
+        return Transaction(
+            inputs=inputs,
+            outputs=list(transaction._outputs),
+            fee_sats=transaction._fee_sats,
+        )
