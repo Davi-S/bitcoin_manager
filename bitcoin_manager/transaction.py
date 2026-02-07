@@ -79,8 +79,7 @@ def _serialize_witness_stack(items: t.Iterable[bytes]) -> bytes:
     witness_items = list(items)
     payload = [_varint(len(witness_items))]
     for item in witness_items:
-        payload.append(_varint(len(item)))
-        payload.append(item)
+        payload.extend((_varint(len(item)), item))
     return b"".join(payload)
 
 
@@ -118,9 +117,7 @@ def _estimate_vbytes_taproot_keypath(
     inputs_list = list(inputs)
     outputs_list = list(outputs)
     base_size = _base_tx_size(inputs_list, outputs_list, version, locktime)
-    witness_size = 0
-    for _ in inputs_list:
-        witness_size += 1 + 1 + 64
+    witness_size = sum(1 + 1 + 64 for _ in inputs_list)
     total_size = base_size
     if witness_size > 0:
         total_size += 2 + witness_size
@@ -374,7 +371,11 @@ def create_transaction(
         if change_value >= DUST_LIMIT_P2TR:
             change_sats = change_value
             fee_sats = fee_with_change
-            outputs_list = outputs_with_change
+            final_change_output = TransactionOutput(
+                value_sats=change_value, # Use the calculated value, not 'leftover'
+                script_pubkey=inputs_list[0].prevout_script_pubkey,
+            )
+            outputs_list += [final_change_output]
         else:
             fee_sats = total_in - total_out
 
@@ -401,16 +402,6 @@ class Transaction:
     ) -> None:
         inputs_list = list(inputs)
         outputs_list = list(outputs)
-        if not inputs_list:
-            raise ValueError("At least one input is required")
-        if not outputs_list:
-            raise ValueError("At least one output is required")
-        if fee_rate_sat_vbyte < 0:
-            raise ValueError("fee_rate_sat_vbyte must be non-negative")
-        for out in outputs_list:
-            if out.value_sats <= 0:
-                raise ValueError("Outputs must have positive value")
-
         self._inputs = tuple(inputs_list)
         self._outputs = tuple(outputs_list)
         self._fee_rate_sat_vbyte = fee_rate_sat_vbyte
@@ -418,17 +409,11 @@ class Transaction:
         self._locktime = locktime
         self._total_in_sats = sum(inp.prevout_value_sats for inp in self._inputs)
         self._total_out_sats = sum(out.value_sats for out in self._outputs)
-        if self._total_in_sats < self._total_out_sats:
-            raise ValueError("Total inputs must be >= total outputs")
         computed_fee = self._total_in_sats - self._total_out_sats
         if fee_sats is None:
             fee_sats = computed_fee
-        if fee_sats < 0:
-            raise ValueError("fee_sats must be non-negative")
         if change_sats is None:
             change_sats = 0
-        if change_sats < 0:
-            raise ValueError("change_sats must be non-negative")
         self._fee_sats = fee_sats
         self._change_sats = change_sats
 
@@ -471,7 +456,7 @@ class Transaction:
     @property
     def total_sent_sats(self) -> int:
         total = self._total_out_sats - self._change_sats
-        return total if total >= 0 else 0
+        return max(total, 0)
 
     @property
     def has_witness(self) -> bool:
@@ -484,6 +469,11 @@ class Transaction:
     @property
     def serialized(self) -> bytes:
         return self._serialize(include_witness=self.has_witness)
+
+    @property
+    def raw_hex(self) -> str:
+        """Return the raw transaction hex ready for broadcast."""
+        return self.serialized.hex()
 
     def _serialize(self, include_witness: bool) -> bytes:
         inputs_payload = b"".join(_serialize_txin(inp) for inp in self._inputs)
@@ -546,24 +536,6 @@ class Transaction:
     def vbytes(self) -> int:
         return (self.weight + 3) // 4
 
-    def with_input_witness(
-        self, input_index: int, witness: t.Iterable[bytes] | None
-    ) -> "Transaction":
-        if input_index < 0 or input_index >= len(self._inputs):
-            raise IndexError("input_index out of range")
-        inputs_list = list(self._inputs)
-        inputs_list[input_index] = inputs_list[input_index].with_witness(witness)
-        return Transaction(
-            inputs=inputs_list,
-            outputs=self._outputs,
-            fee_rate_sat_vbyte=self._fee_rate_sat_vbyte,
-            version=self._version,
-            locktime=self._locktime,
-            fee_sats=self._fee_sats,
-            change_sats=self._change_sats,
-        )
-
-
 class TaprootSigner:
     """Sign Taproot key-path inputs."""
 
@@ -577,4 +549,16 @@ class TaprootSigner:
         sighash = _taproot_sighash_keypath(transaction, input_index, sighash_type)
         tweaked = _taproot_tweak_privkey(priv_key)
         signature = _schnorr_sign(sighash, tweaked)
-        return transaction.with_input_witness(input_index, [signature])
+        if input_index < 0 or input_index >= len(transaction.inputs):
+            raise IndexError("input_index out of range")
+        inputs_list = list(transaction.inputs)
+        inputs_list[input_index] = inputs_list[input_index].with_witness([signature])
+        return Transaction(
+            inputs=inputs_list,
+            outputs=transaction.outputs,
+            fee_rate_sat_vbyte=transaction.fee_rate_sat_vbyte,
+            version=transaction.version,
+            locktime=transaction.locktime,
+            fee_sats=transaction.fee_sats,
+            change_sats=transaction.change_sats,
+        )
