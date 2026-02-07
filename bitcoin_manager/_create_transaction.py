@@ -5,19 +5,19 @@ from . import wallet as wlt
 
 
 # Private key (WIF format)
-PRIVATE_KEY_WIF = "KyFiruDqzurHBHs4QcdU9SkAFd9Ad3xaUP7R84AtFU4sJ8a48hyQ"
+PRIVATE_KEY_WIF = "KzC1MocBm6hVMgdBceJGunm4FmKcrnvyt75VkBZSjRUmsCZwLunm"
 
 # Input transaction details
-INPUT_TXID = "aaf28ac10058ae51aa390b3a6d4320a70471e53eb6829697a4c979bc77b9cfb8"
+INPUT_TXID = "d31365dd5eb907c7618f6cfb12eb330cf0b15ac468ab573051975549c2f77030"
 INPUT_VOUT = 0
-INPUT_AMOUNT_SAT = 11363
-
-# Output details
-DESTINATION_ADDRESS = "bc1p77n8yxsul45wwzwzemzxeyk89hen4w9526pjhy0dfr2xeexm32xs9fm84x"
-SEND_AMOUNT_SAT = 5000
+INPUT_AMOUNT_SAT = 24383
 
 # Fee configuration
-FEE_SAT = 248
+FEE_SAT = 373
+
+# Output details
+DESTINATION_ADDRESS = "bc1pgwyhkkcpnavptqdp852q22prrlemelr9mv4umaednz85duu38d5q37lzw7"
+SEND_AMOUNT_SAT = 24383 - FEE_SAT
 
 
 def main():

@@ -435,4 +435,3 @@ class TaprootSigner:
             outputs=list(transaction.outputs),
             fee_sats=transaction.fee_sats,
         )
-
