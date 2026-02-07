@@ -1,12 +1,8 @@
 from . import address
-from . import crypto_utils
 from . import private_key as pv
 from . import transaction as tx
 from . import wallet as wlt
 
-# ============================================================================
-# TRANSACTION CONFIGURATION
-# ============================================================================
 
 # Private key (WIF format)
 PRIVATE_KEY_WIF = "KyFiruDqzurHBHs4QcdU9SkAFd9Ad3xaUP7R84AtFU4sJ8a48hyQ"
@@ -24,7 +20,6 @@ SEND_AMOUNT_SAT = 5000
 FEE_SAT = 248
 
 
-# ============================================================================
 def main():
     wallet = wlt.Wallet.from_private_key(pv.PrivateKey.from_wif(PRIVATE_KEY_WIF))
 
@@ -79,4 +74,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
