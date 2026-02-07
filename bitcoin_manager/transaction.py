@@ -1,4 +1,5 @@
 import typing as t
+from . import crypto_utils
 from . import private_key as pv
 
 
@@ -17,7 +18,8 @@ def _normalize_txid(txid: bytes | str) -> bytes:
     cleaned = txid.strip().lower().removeprefix("0x")
     if len(cleaned) != 64:
         raise ValueError("txid hex must be 32 bytes (64 hex chars)")
-    return bytes.fromhex(cleaned)
+    # Store txid internally in little-endian order.
+    return bytes.fromhex(cleaned)[::-1]
 
 
 def _normalize_witness(witness: t.Iterable[bytes] | None) -> tuple[bytes, ...]:
@@ -125,15 +127,125 @@ class TransactionOutput:
 
 class Transaction:
     """Represents an immutable SegWit transaction."""
-    # Should represent [Version][Marker][Flag][Input Count][Inputs][Output Count][Outputs][Witnesses][LockTime]
-    #
-    # Should have an interface where the user only needs to pass
-    #   - inputs: t.Iterable[TransactionInput],
-    #   - outputs: t.Iterable[TransactionOutput],
-    #   - fee_sats: int 
-    # to create the transaction; everything else will be taken care of; the fee, the change, etc...
-    ...
+    VERSION = 2
+    MARKER = 0x00
+    FLAG = 0x01
+    LOCKTIME = 0
 
+    def __init__(
+        self,
+        inputs: t.Iterable[TransactionInput],
+        outputs: t.Iterable[TransactionOutput],
+        fee_sats: int,
+    ) -> None:
+        if not isinstance(fee_sats, int) or fee_sats < 0:
+            raise ValueError("fee_sats must be a non-negative integer")
+        inputs_list = list(inputs)
+        outputs_list = list(outputs)
+        if not inputs_list:
+            raise ValueError("transaction must have at least one input")
+        if not outputs_list:
+            raise ValueError("transaction must have at least one output")
+        if not all(isinstance(item, TransactionInput) for item in inputs_list):
+            raise TypeError("inputs must be TransactionInput instances")
+        if not all(isinstance(item, TransactionOutput) for item in outputs_list):
+            raise TypeError("outputs must be TransactionOutput instances")
+
+        self._fee_sats = fee_sats
+        change_sats = self._compute_change_sats(inputs_list, outputs_list)
+        if change_sats >= DUST_LIMIT_P2TR:
+            outputs_list.append(
+                TransactionOutput(
+                    value_sats=change_sats,
+                    script_pubkey=inputs_list[0].prevout_script_pubkey,
+                )
+            )
+        else:
+            self._fee_sats += change_sats
+            change_sats = 0
+
+        self._inputs = tuple(inputs_list)
+        self._outputs = tuple(outputs_list)
+        self._change_sats = change_sats
+        self._to_hex_cache: str | None = None
+        self._txid_hex_cache: str | None = None
+
+    def _compute_change_sats(
+        self,
+        inputs: list[TransactionInput],
+        outputs: list[TransactionOutput],
+    ) -> int:
+        total_in = sum(txin.prevout_value_sats for txin in inputs)
+        total_out = sum(txout.value_sats for txout in outputs)
+        change = total_in - total_out - self._fee_sats
+        if change < 0:
+            raise ValueError("insufficient input amount for outputs and fee")
+        return change
+
+    def _serialize_inputs(self) -> bytes:
+        parts: list[bytes] = [crypto_utils.encode_varint(len(self._inputs))]
+        for txin in self._inputs:
+            parts.append(txin.txid)
+            parts.append(crypto_utils.int_to_le_bytes(txin.vout, 4))
+            parts.append(b"\x00")
+            parts.append(crypto_utils.int_to_le_bytes(txin.sequence, 4))
+        return b"".join(parts)
+
+    def _serialize_outputs(self) -> bytes:
+        parts: list[bytes] = [crypto_utils.encode_varint(len(self._outputs))]
+        for txout in self._outputs:
+            parts.append(crypto_utils.int_to_le_bytes(txout.value_sats, 8))
+            parts.append(crypto_utils.encode_varint(len(txout.script_pubkey)))
+            parts.append(txout.script_pubkey)
+        return b"".join(parts)
+
+    def _serialize_witnesses(self) -> bytes:
+        parts: list[bytes] = []
+        for txin in self._inputs:
+            parts.append(crypto_utils.encode_varint(len(txin.witness)))
+            for item in txin.witness:
+                parts.append(crypto_utils.encode_varint(len(item)))
+                parts.append(item)
+        return b"".join(parts)
+
+    def _serialize_legacy(self) -> bytes:
+        return b"".join(
+            [
+                crypto_utils.int_to_le_bytes(self.VERSION, 4),
+                self._serialize_inputs(),
+                self._serialize_outputs(),
+                crypto_utils.int_to_le_bytes(self.LOCKTIME, 4),
+            ]
+        )
+
+    def _serialize_segwit(self) -> bytes:
+        return b"".join(
+            [
+                crypto_utils.int_to_le_bytes(self.VERSION, 4),
+                bytes([self.MARKER, self.FLAG]),
+                self._serialize_inputs(),
+                self._serialize_outputs(),
+                self._serialize_witnesses(),
+                crypto_utils.int_to_le_bytes(self.LOCKTIME, 4),
+            ]
+        )
+
+    @property
+    def to_hex(self) -> str:
+        if self._to_hex_cache is None:
+            self._to_hex_cache = self._serialize_segwit().hex()
+        return self._to_hex_cache
+
+    @property
+    def txid_hex(self) -> str:
+        if self._txid_hex_cache is None:
+            digest = crypto_utils.double_sha256(self._serialize_legacy())
+            self._txid_hex_cache = digest[::-1].hex()
+        return self._txid_hex_cache
+
+    @property
+    def change_sats(self) -> int:
+        return self._change_sats
 
 class TaprootSigner:
     """Sign Taproot key-path inputs."""

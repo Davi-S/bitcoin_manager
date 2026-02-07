@@ -43,7 +43,7 @@ def main():
         )
     ]
     
-    unsigned_tx: tx.Transaction = tx.create_transaction(
+    unsigned_tx = tx.Transaction(
         inputs=inputs,
         outputs=outputs,
         fee_sats=FEE_SAT,
