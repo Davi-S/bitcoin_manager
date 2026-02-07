@@ -21,7 +21,7 @@ DESTINATION_ADDRESS = "bc1p77n8yxsul45wwzwzemzxeyk89hen4w9526pjhy0dfr2xeexm32xs9
 SEND_AMOUNT_SAT = 5000
 
 # Fee configuration
-FEE_RATE_SAT_VBYTE = 2
+FEE_SAT = 248
 
 # ============================================================================
 def main():
@@ -43,17 +43,17 @@ def main():
         )
     ]
     
-    unsigned_tx = tx.create_transaction(
+    unsigned_tx: tx.Transaction = tx.create_transaction(
         inputs=inputs,
         outputs=outputs,
-        fee_rate_sat_vbyte=FEE_RATE_SAT_VBYTE,
+        fee_sats=FEE_SAT,
     )
 
     print("=" * 80)
     print("UNSIGNED TRANSACTION")
     print("=" * 80)
     print(f"TXID: {unsigned_tx.txid_hex}")
-    print(f"To Broadcast: {unsigned_tx.raw_hex}")
+    print(f"To Broadcast: {unsigned_tx.to_hex}")
     print()
 
     signed_tx = tx.TaprootSigner.sign_keypath(
@@ -66,14 +66,13 @@ def main():
     print("SIGNED TRANSACTION (Ready to Broadcast)")
     print("=" * 80)
     print(f"TXID: {signed_tx.txid_hex}")
-    print(f"To Broadcast: {signed_tx.raw_hex}")
+    print(f"To Broadcast: {signed_tx.to_hex}")
     print()
 
     print("=" * 80)
     print("TRANSACTION DETAILS")
     print("=" * 80)
     print(f"Change Amount: {signed_tx.change_sats} sats")
-    print(f"Fee: {signed_tx.fee_sats} sat")
 
 
 if __name__ == "__main__":
