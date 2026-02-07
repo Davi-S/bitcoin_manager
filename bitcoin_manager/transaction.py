@@ -372,12 +372,16 @@ def create_transaction(
             change_sats = change_value
             fee_sats = fee_with_change
             final_change_output = TransactionOutput(
-                value_sats=change_value, # Use the calculated value, not 'leftover'
+                value_sats=change_value, 
                 script_pubkey=inputs_list[0].prevout_script_pubkey,
             )
             outputs_list += [final_change_output]
         else:
+            # This handles the case where adding a change output made the change amount dust
             fee_sats = total_in - total_out
+    else:
+        # [MISSING BLOCK] This handles the case where the initial remainder was already dust
+        fee_sats = total_in - total_out
 
     return Transaction(
         inputs=inputs_list,

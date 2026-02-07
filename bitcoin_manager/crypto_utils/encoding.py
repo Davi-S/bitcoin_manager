@@ -17,11 +17,13 @@ def int_to_le_bytes(value: int, length: int) -> bytes:
 
 def encode_varint(value: int) -> bytes:
     """Encode an integer as Bitcoin VarInt (CompactSize)."""
+    if not isinstance(value, int):
+        raise TypeError("VarInt value must be an int")
     if value < 0:
         raise ValueError("VarInt value must be non-negative")
     if value < 0xFD:
         return value.to_bytes(1, byteorder="little")
-    if value <= 0xFFFF:
+    if 0xFD <= value <= 0xFFFF:
         return b"\xFD" + int_to_le_bytes(value, 2)
     if value <= 0xFFFFFFFF:
         return b"\xFE" + int_to_le_bytes(value, 4)

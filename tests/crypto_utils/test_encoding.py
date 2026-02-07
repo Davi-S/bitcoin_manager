@@ -149,3 +149,23 @@ class TestConvertbits:
         """Test convertbits with invalid bit sizes."""
         with pytest.raises(Exception):  # Expecting ValidationError or similar
             encoding.convertbits([1, 2, 3], frombits, tobits)
+
+
+class TestVarInt:
+    """Tests for VarInt encoding."""
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            (0, b"\x00"),
+            (1, b"\x01"),
+            (34, b"\x22"),
+            (0xFC, b"\xFC"),
+            (0xFD, b"\xFD\xFD\x00"),
+            (0xFFFF, b"\xFD\xFF\xFF"),
+            (0x10000, b"\xFE\x00\x00\x01\x00"),
+        ],
+    )
+    def test_encode_varint_minimal(self, value, expected):
+        """Ensure VarInt uses minimal encoding per value size."""
+        assert encoding.encode_varint(value) == expected
