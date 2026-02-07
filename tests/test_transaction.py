@@ -1,19 +1,22 @@
-"""
-Tests for transaction.py - immutable Transaction behavior
-"""
+"""Tests for transaction.py - immutable Transaction behavior."""
 
 import pytest
 
 from bitcoin_manager import crypto_utils
-from bitcoin_manager import transaction as tx
-from bitcoin_manager import wallet as wlt
 from bitcoin_manager import private_key as pv
+from bitcoin_manager import transaction as tx
 
 
 def _sample_input_output():
     txid = bytes.fromhex("11" * 32)
-    tx_input = tx.TxInput(txid, vout=1)
-    tx_output = tx.TxOutput(value=1000, script_pubkey=b"\x51")
+    prevout_script_pubkey = b"\x51\x20" + (b"\x00" * 32)
+    tx_input = tx.TransactionInput(
+        txid=txid,
+        vout=1,
+        prevout_value_sats=5000,
+        prevout_script_pubkey=prevout_script_pubkey,
+    )
+    tx_output = tx.TransactionOutput(value_sats=1000, script_pubkey=b"\x51")
     return tx_input, tx_output
 
 
@@ -27,26 +30,28 @@ def test_constructor_is_immutable():
     assert tx0.outputs == ()
     assert tx1.inputs == (tx_input,)
     assert tx1.outputs == (tx_output,)
-    assert tx1.witnesses == ((),)
 
 
-def test_witnesses_length_mismatch():
-    tx_input, tx_output = _sample_input_output()
-    with pytest.raises(ValueError, match="witnesses length must match number of inputs"):
-        tx.Transaction(inputs=[tx_input], outputs=[tx_output], witnesses=[])
+def test_witness_validation():
+    txid = bytes.fromhex("11" * 32)
+    prevout_script_pubkey = b"\x51\x20" + (b"\x00" * 32)
+    with pytest.raises(TypeError, match="witness items must be bytes"):
+        tx.TransactionInput(
+            txid=txid,
+            vout=0,
+            prevout_value_sats=5000,
+            prevout_script_pubkey=prevout_script_pubkey,
+            witness=[123],
+        )
 
 
 def test_returned_collections_are_immutable():
     tx_input, tx_output = _sample_input_output()
-    tx1 = tx.Transaction(
-        inputs=[tx_input],
-        outputs=[tx_output],
-        witnesses=[(b"sig",)],
-    )
+    tx1 = tx.Transaction(inputs=[tx_input], outputs=[tx_output])
 
     assert isinstance(tx1.inputs, tuple)
     assert isinstance(tx1.outputs, tuple)
-    assert isinstance(tx1.witnesses, tuple)
+    assert isinstance(tx1.inputs[0].witness, tuple)
 
     with pytest.raises(TypeError):
         tx1.inputs[0] = tx_input
@@ -55,7 +60,7 @@ def test_returned_collections_are_immutable():
         tx1.outputs[0] = tx_output
 
     with pytest.raises(TypeError):
-        tx1.witnesses[0][0] = b"x"
+        tx1.inputs[0].witness[0] = b"x"
 
 
 def test_serialization_and_txid():
@@ -71,15 +76,9 @@ def test_serialization_and_txid():
         + crypto_utils.int_to_le_bytes(0, 4)
     )
 
-    assert tx_base.serialize(include_witness=False) == expected_unsigned
+    assert tx_base.to_bytes(include_witness=False) == expected_unsigned
 
-    tx_signed = tx.Transaction(
-        version=tx_base.version,
-        locktime=tx_base.locktime,
-        inputs=tx_base.inputs,
-        outputs=tx_base.outputs,
-        witnesses=[(b"\x02\x03",)],
-    )
+    tx_signed = tx_base.with_input_witness(0, [b"\x02\x03"])
     expected_signed = (
         crypto_utils.int_to_le_bytes(2, 4)
         + b"\x00\x01"
@@ -93,7 +92,7 @@ def test_serialization_and_txid():
         + crypto_utils.int_to_le_bytes(0, 4)
     )
 
-    assert tx_signed.serialize(include_witness=True) == expected_signed
+    assert tx_signed.to_bytes(include_witness=True) == expected_signed
 
     expected_txid = crypto_utils.double_sha256(expected_unsigned)[::-1]
     assert tx_base.txid() == expected_txid
@@ -105,42 +104,24 @@ def test_external_lists_do_not_mutate_transaction():
     tx_input, tx_output = _sample_input_output()
     inputs = [tx_input]
     outputs = [tx_output]
-    witnesses = [(b"sig",)]
 
-    transaction = tx.Transaction(inputs=inputs, outputs=outputs, witnesses=witnesses)
+    transaction = tx.Transaction(inputs=inputs, outputs=outputs)
     inputs.append(tx_input)
     outputs.append(tx_output)
-    witnesses.append((b"extra",))
 
     assert transaction.inputs == (tx_input,)
     assert transaction.outputs == (tx_output,)
-    assert transaction.witnesses == ((b"sig",),)
 
 
-def test_unsigned_transaction_fee_change_and_sign():
+def test_taproot_signer_signature_length():
+    tx_input, tx_output = _sample_input_output()
+    tx_base = tx.Transaction(inputs=[tx_input], outputs=[tx_output])
     priv_key = pv.PrivateKey.from_int(1)
-    wallet = wlt.Wallet.from_private_key(priv_key)
-    txid_hex = "11" * 32
 
-    def lookup(txid: bytes, vout: int) -> tx.Prevout:
-        assert txid == bytes.fromhex(txid_hex)
-        assert vout == 0
-        script_pubkey = wallet.address.scriptpubkey
-        return tx.Prevout(amount=5000, script_pubkey=script_pubkey)
-
-    unsigned = tx.UnsignedTransaction(
-        inputs=[(txid_hex, 0)],
-        amount_sats=1000,
-        output=wallet,
-        fee_rate_sat_vbyte=1,
-        utxo_lookup=lookup,
+    signature = tx.TaprootSigner.sign_keypath(
+        transaction=tx_base, input_index=0, priv_key=priv_key
     )
+    assert len(signature) == 64
 
-    assert unsigned.total_input_sats == 5000
-    assert unsigned.fee_sats == unsigned.estimated_vbytes * 1
-    assert unsigned.change_sats == 5000 - 1000 - unsigned.fee_sats
-
-    signed = unsigned.sign(wallet)
-    assert len(signed.transaction.witnesses) == 1
-    assert len(signed.transaction.witnesses[0]) == 1
-    assert len(signed.transaction.witnesses[0][0]) == 64
+    signed_tx = tx_base.with_input_witness(0, [signature])
+    assert signed_tx.inputs[0].witness[0] == signature

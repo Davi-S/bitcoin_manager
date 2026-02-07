@@ -1,8 +1,8 @@
 from . import address
-from . import private_key as pv
-from . import wallet as wlt
-from . import transaction as tx
 from . import crypto_utils
+from . import private_key as pv
+from . import transaction as tx
+from . import wallet as wlt
 
 # ============================================================================
 # TRANSACTION CONFIGURATION
@@ -25,25 +25,27 @@ SEND_AMOUNT_SAT = 10_000
 FEE_RATE_SAT_VBYTE = 4
 
 # ============================================================================
-
-
 def main():
     private_key = pv.PrivateKey.from_wif(PRIVATE_KEY_WIF)
     wallet = wlt.Wallet.from_private_key(private_key)
     destination = address.TaprootAddress.from_address(DESTINATION_ADDRESS)
 
-    def utxo_lookup(txid: bytes, vout: int) -> tx.Prevout:
-        if txid != bytes.fromhex(INPUT_TXID) or vout != INPUT_VOUT:
-            raise KeyError("Unknown input")
-        script_pubkey = wallet.address.scriptpubkey
-        return tx.Prevout(amount=INPUT_AMOUNT_SAT, script_pubkey=script_pubkey)
-
-    unsigned_tx = tx.UnsignedTransaction(
-        inputs=[(INPUT_TXID, INPUT_VOUT)],
-        amount_sats=SEND_AMOUNT_SAT,
-        output=destination,
+    tx_inputs = [tx.TransactionInput(
+        txid=INPUT_TXID,
+        vout=INPUT_VOUT,
+        prevout_value_sats=INPUT_AMOUNT_SAT,
+        prevout_script_pubkey=wallet.address.scriptpubkey,
+    )]
+    outputs = [
+        tx.TransactionOutput(
+            value_sats=SEND_AMOUNT_SAT, script_pubkey=destination.scriptpubkey
+        )
+    ]
+    unsigned_tx = tx.Transaction(
+        inputs=tx_inputs,
+        outputs=outputs,
+        change_address=wallet.address,
         fee_rate_sat_vbyte=FEE_RATE_SAT_VBYTE,
-        utxo_lookup=utxo_lookup,
     )
 
     print("=" * 80)
@@ -54,8 +56,10 @@ def main():
     print(f"Change: {unsigned_tx.change_sats} sat")
     print()
 
-    signed_tx = unsigned_tx.sign(wallet)
-    signed_tx_hex = signed_tx.serialize(include_witness=True).hex()
+    signed_tx = tx.TaprootSigner.sign_keypath(
+        transaction=unsigned_tx, input_index=0, priv_key=wallet.private_key
+    )
+    signed_tx_hex = signed_tx.to_hex(include_witness=True)
 
     print("=" * 80)
     print("SIGNED TRANSACTION (Ready to Broadcast)")
@@ -67,12 +71,12 @@ def main():
     print("=" * 80)
     print("TRANSACTION DETAILS")
     print("=" * 80)
-    print(f"Input Amount: {unsigned_tx.total_input_sats} sat")
+    print(f"Input Amount: {INPUT_AMOUNT_SAT} sat")
     print(
-        f"Output Amount: {crypto_utils.sat_to_btc(unsigned_tx.output_sats)} BTC "
-        f"({unsigned_tx.output_sats} sat)"
+        f"Output Amount: {crypto_utils.sat_to_btc(SEND_AMOUNT_SAT)} BTC "
+        f"({SEND_AMOUNT_SAT} sat)"
     )
-    if unsigned_tx.change_sats > 0:
+    if unsigned_tx.change_sats and unsigned_tx.change_sats > 0:
         print(
             f"Change Amount: {crypto_utils.sat_to_btc(unsigned_tx.change_sats)} BTC "
             f"({unsigned_tx.change_sats} sat)"
