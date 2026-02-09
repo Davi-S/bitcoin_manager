@@ -129,7 +129,12 @@ class Transaction:
         inputs: t.Iterable[TransactionInput],
         outputs: t.Iterable[TransactionOutput],
         fee_sats: int,
+        version: int = VERSION,
+        marker: int = MARKER,
+        flag: int = FLAG,
+        locktime: int = LOCKTIME
     ) -> None:
+        # Validate inputs
         if fee_sats < 0:
             raise ValueError("fee_sats must be a non-negative integer")
         inputs_list = list(inputs)
@@ -139,6 +144,7 @@ class Transaction:
         if not outputs_list:
             raise ValueError("transaction must have at least one output")
 
+        # Calculate change and add to outputs
         change_sats = self._compute_change_sats(inputs_list, outputs_list, fee_sats)
         if change_sats >= DUST_LIMIT_P2TR:
             outputs_list.append(
@@ -150,8 +156,13 @@ class Transaction:
         else:
             change_sats = 0
 
+        # Save info
         self._inputs = tuple(inputs_list)
         self._outputs = tuple(outputs_list)
+        self._version = version
+        self._marker = marker
+        self._flag = flag
+        self._locktime = locktime
         self._change_sats_cache: int | None = None
         self._fee_sats_cache: int | None = None
         self._to_hex_cache: str | None = None
@@ -264,6 +275,21 @@ class Transaction:
     def outputs(self) -> tuple[TransactionOutput, ...]:
         return tuple(self._outputs)
 
+    @property
+    def version(self) -> int: 
+        return self._version
+    
+    @property
+    def marker(self) -> int:
+        return self._marker
+
+    @property
+    def flag(self) -> int:
+        return self._flag
+    
+    @property
+    def locktime(self) -> int:
+        return self._locktime
 
 class TaprootSigner:
     """Sign Taproot key-path inputs."""
