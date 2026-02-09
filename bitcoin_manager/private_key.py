@@ -1,7 +1,7 @@
 import typing as t
 
 from . import crypto_utils
-from .crypto_utils import secp256k1_curve
+from . import crypto_utils
 
 
 _KEY_LENGTH_BYTES = 32
@@ -44,7 +44,7 @@ class PrivateKey:
         if len(key_bytes) != _KEY_LENGTH_BYTES:
             raise ValueError("Private key must be exactly 32 bytes")
         key_int = int.from_bytes(key_bytes, byteorder="big")
-        if not (1 <= key_int < secp256k1_curve.SECP256K1_ORDER):
+        if not (1 <= key_int < crypto_utils.SECP256K1_ORDER):
             raise ValueError("Private key is out of valid secp256k1 range")
         self._key_bytes = key_bytes
         self._key_int_cache: t.Optional[int] = None

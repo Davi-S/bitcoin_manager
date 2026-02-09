@@ -20,7 +20,7 @@ DESTINATION_ADDRESS = "bc1pgwyhkkcpnavptqdp852q22prrlemelr9mv4umaednz85duu38d5q3
 SEND_AMOUNT_SAT = 24383 - FEE_SAT
 
 
-def main():
+def main():  # sourcery skip: extract-duplicate-method
     wallet = wlt.Wallet.from_private_key(pv.PrivateKey.from_wif(PRIVATE_KEY_WIF))
 
     inputs = [
@@ -46,22 +46,20 @@ def main():
         outputs=outputs,
         fee_sats=FEE_SAT,
     )
-
-    print("=" * 80)
-    print("UNSIGNED TRANSACTION")
-    print("=" * 80)
-    print(f"TXID: {unsigned_tx.txid_hex}")
-    print(f"To Broadcast: {unsigned_tx.to_hex}")
-    print()
-
+    
     signed_tx = tx.TaprootSigner.sign_keypath(
         transaction=unsigned_tx, input_index=0, priv_key=wallet.private_key
     )
+    
+    print("=" * 80)
+    print("UNSIGNED TRANSACTION")
+    print("=" * 80)
+    print(f"To Broadcast: {unsigned_tx.to_hex}")
+    print()
 
     print("=" * 80)
     print("SIGNED TRANSACTION (Ready to Broadcast)")
     print("=" * 80)
-    print(f"TXID: {signed_tx.txid_hex}")
     print(f"To Broadcast: {signed_tx.to_hex}")
     print()
 
@@ -69,7 +67,7 @@ def main():
     print("TRANSACTION DETAILS")
     print("=" * 80)
     print(f"Change Amount: {signed_tx.change_sats} sats")
-    print(f"Change Amount: {signed_tx.fee_sats} sats")
+    print(f"Fee Amount: {signed_tx.fee_sats} sats")
 
 
 if __name__ == "__main__":

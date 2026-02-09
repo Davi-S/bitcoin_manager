@@ -12,7 +12,7 @@ def _normalize_txid(txid: bytes | str) -> bytes:
         if len(txid) != 32:
             raise ValueError("txid must be 32 bytes")
         return txid
-    cleaned = txid.strip().lower().removeprefix("0x")
+    cleaned = str(txid).strip().lower().removeprefix("0x")
     if len(cleaned) != 64:
         raise ValueError("txid hex must be 32 bytes (64 hex chars)")
     # Store txid internally in little-endian order.
@@ -23,8 +23,7 @@ def _normalize_witness(witness: t.Iterable[bytes] | None) -> tuple[bytes, ...]:
     if witness is None:
         return ()
     items: list[bytes] = []
-    for item in witness:
-        items.append(bytes(item))
+    items.extend(bytes(item) for item in witness)
     return tuple(items)
 
 
@@ -172,6 +171,7 @@ class Transaction:
         return change
 
     def _serialize_inputs(self) -> bytes:
+        # sourcery skip: merge-list-appends-into-extend
         parts: list[bytes] = [crypto_utils.encode_varint(len(self.inputs))]
         for txin in self.inputs:
             parts.append(txin.txid)
@@ -181,6 +181,7 @@ class Transaction:
         return b"".join(parts)
 
     def _serialize_outputs(self) -> bytes:
+        # sourcery skip: merge-list-appends-into-extend
         parts: list[bytes] = [crypto_utils.encode_varint(len(self.outputs))]
         for txout in self.outputs:
             parts.append(crypto_utils.int_to_le_bytes(txout.value_sats, 8))
@@ -189,6 +190,7 @@ class Transaction:
         return b"".join(parts)
 
     def _serialize_witnesses(self) -> bytes:
+        # sourcery skip: merge-list-appends-into-extend
         parts: list[bytes] = []
         for txin in self.inputs:
             parts.append(crypto_utils.encode_varint(len(txin.witness)))
@@ -273,9 +275,9 @@ class TaprootSigner:
         if merkle_root not in (b"",) and len(merkle_root) != 32:
             raise ValueError("merkle_root must be 32 bytes or empty")
 
-        n = crypto_utils.secp256k1_curve.SECP256K1_ORDER
+        n = crypto_utils.SECP256K1_ORDER
         d = priv_key.to_int
-        internal_point = crypto_utils.secp256k1_curve.G.multiply(d)
+        internal_point = crypto_utils.SECP256K1_GENERATOR_POINT.multiply(d)
         if internal_point.y % 2 != 0:
             d = n - d
             internal_point = internal_point.negate()
@@ -287,7 +289,7 @@ class TaprootSigner:
         if tweaked == 0:
             raise ValueError("invalid tweaked private key")
 
-        tweaked_point = crypto_utils.secp256k1_curve.G.multiply(tweaked)
+        tweaked_point = crypto_utils.SECP256K1_GENERATOR_POINT.multiply(tweaked)
         if tweaked_point.y % 2 != 0:
             tweaked = n - tweaked
             tweaked_point = tweaked_point.negate()
@@ -301,7 +303,7 @@ class TaprootSigner:
         if len(pubkey_x) != 32:
             raise ValueError("pubkey_x must be 32 bytes")
 
-        n = crypto_utils.secp256k1_curve.SECP256K1_ORDER
+        n = crypto_utils.SECP256K1_ORDER
         d = seckey_int % n
         if d == 0:
             raise ValueError("invalid private key")
@@ -320,7 +322,7 @@ class TaprootSigner:
         if k0 == 0:
             raise ValueError("invalid nonce")
 
-        r_point = crypto_utils.secp256k1_curve.G.multiply(k0)
+        r_point = crypto_utils.SECP256K1_GENERATOR_POINT.multiply(k0)
         if r_point.y % 2 != 0:
             k0 = n - k0
             r_point = r_point.negate()

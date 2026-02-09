@@ -1,26 +1,21 @@
 # Secp256k1 curve parameters
-P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
-N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
-Gy = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8
+SECP256K1_FIELD_PRIME = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+SECP256K1_CURVE_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+SECP256K1_GENERATOR_POINT_X = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+SECP256K1_GENERATOR_POINT_Y = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8
 
 # Secp256k1 order
 SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
 
-def mod_secp256k1_order(value: int) -> int:
-    """Reduce an integer modulo the secp256k1 curve order."""
-    return value % SECP256K1_ORDER
-
-
-class Point:
+class SECP256K1Point:
     """Represents a point on the secp256k1 elliptic curve."""
 
     def __init__(self) -> None:
         raise TypeError("Use Point.from_* classmethods for construction")
 
     @classmethod
-    def _from_coordinates(cls, x: int, y: int) -> "Point":
+    def _from_coordinates(cls, x: int, y: int) -> SECP256K1Point:
         instance = object.__new__(cls)
         instance._init_from_coordinates(x, y)
         return instance
@@ -34,20 +29,20 @@ class Point:
 
     def _validate(self) -> None:
         """Validate point coordinates on initialization."""
-        if not (0 <= self._x < P and 0 <= self._y < P):
+        if not (0 <= self._x < SECP256K1_FIELD_PRIME and 0 <= self._y < SECP256K1_FIELD_PRIME):
             raise ValueError("Point coordinates out of field range")
 
         # Check curve equation: y^2 = x^3 + 7 (mod P)
-        if (self._y * self._y - (self._x * self._x * self._x + 7)) % P != 0:
+        if (self._y * self._y - (self._x * self._x * self._x + 7)) % SECP256K1_FIELD_PRIME != 0:
             raise ValueError("Point is not on the secp256k1 curve")
 
     @classmethod
-    def from_coordinates(cls, x: int, y: int) -> "Point":
+    def from_coordinates(cls, x: int, y: int) -> SECP256K1Point:
         """Create a Point from x and y coordinates."""
         return cls._from_coordinates(x, y)
 
     @classmethod
-    def from_sec1(cls, data: bytes) -> "Point":
+    def from_sec1(cls, data: bytes) -> SECP256K1Point:
         """
         Decode from SEC1-encoded bytes.
 
@@ -66,16 +61,16 @@ class Point:
                 raise ValueError("Invalid SEC1 compressed prefix")
 
             x = int.from_bytes(data[1:], byteorder="big")
-            if x >= P:
+            if x >= SECP256K1_FIELD_PRIME:
                 raise ValueError("Invalid SEC1 x-coordinate")
 
-            y_sq = (pow(x, 3, P) + 7) % P
-            y = pow(y_sq, (P + 1) // 4, P)
-            if (y * y) % P != y_sq:
+            y_sq = (pow(x, 3, SECP256K1_FIELD_PRIME) + 7) % SECP256K1_FIELD_PRIME
+            y = pow(y_sq, (SECP256K1_FIELD_PRIME + 1) // 4, SECP256K1_FIELD_PRIME)
+            if (y * y) % SECP256K1_FIELD_PRIME != y_sq:
                 raise ValueError("Invalid SEC1 compressed point")
 
             if (y % 2 == 0) != (prefix == 0x02):
-                y = P - y
+                y = SECP256K1_FIELD_PRIME - y
 
             return cls.from_coordinates(x, y)
 
@@ -85,7 +80,7 @@ class Point:
 
             x = int.from_bytes(data[1:33], byteorder="big")
             y = int.from_bytes(data[33:], byteorder="big")
-            if x >= P or y >= P:
+            if x >= SECP256K1_FIELD_PRIME or y >= SECP256K1_FIELD_PRIME:
                 raise ValueError("Invalid SEC1 uncompressed coordinates")
 
             return cls.from_coordinates(x, y)
@@ -128,7 +123,7 @@ class Point:
             self._sec1_uncompressed_cache = b"\x04" + x_bytes + y_bytes
         return self._sec1_uncompressed_cache
 
-    def add(self, other: "Point") -> "Point":
+    def add(self, other: SECP256K1Point) -> SECP256K1Point:
         """
         Add this point to another point.
 
@@ -147,19 +142,19 @@ class Point:
         if x1 == x2:
             if y1 == y2:
                 # Point doubling: P + P
-                s = (3 * x1 * x1 * pow(2 * y1, P - 2, P)) % P
+                s = (3 * x1 * x1 * pow(2 * y1, SECP256K1_FIELD_PRIME - 2, SECP256K1_FIELD_PRIME)) % SECP256K1_FIELD_PRIME
             else:
                 # P + (-P) = point at infinity
                 raise ValueError("Cannot add point to its inverse (point at infinity)")
         else:
             # Regular addition: (y2 - y1) / (x2 - x1)
-            s = ((y2 - y1) * pow(x2 - x1, P - 2, P)) % P
+            s = ((y2 - y1) * pow(x2 - x1, SECP256K1_FIELD_PRIME - 2, SECP256K1_FIELD_PRIME)) % SECP256K1_FIELD_PRIME
 
-        x3 = (s * s - x1 - x2) % P
-        y3 = (s * (x1 - x3) - y1) % P
-        return Point.from_coordinates(x3, y3)
+        x3 = (s * s - x1 - x2) % SECP256K1_FIELD_PRIME
+        y3 = (s * (x1 - x3) - y1) % SECP256K1_FIELD_PRIME
+        return SECP256K1Point.from_coordinates(x3, y3)
 
-    def multiply(self, k: int) -> "Point":
+    def multiply(self, k: int) -> SECP256K1Point:
         """
         Multiply this point by a scalar using double-and-add algorithm.
 
@@ -189,13 +184,13 @@ class Point:
 
         return result
 
-    def negate(self) -> "Point":
+    def negate(self) -> SECP256K1Point:
         """Return the negation of this point."""
-        return Point.from_coordinates(self.x, P - self.y)
+        return SECP256K1Point.from_coordinates(self.x, SECP256K1_FIELD_PRIME - self.y)
 
     def __eq__(self, other: object) -> bool:
         """Check equality with another Point."""
-        if not isinstance(other, Point):
+        if not isinstance(other, SECP256K1Point):
             return NotImplemented
         return self.x == other.x and self.y == other.y
 
@@ -209,4 +204,4 @@ class Point:
 
 
 # Generator point G for secp256k1
-G = Point.from_coordinates(Gx, Gy)
+SECP256K1_GENERATOR_POINT = SECP256K1Point.from_coordinates(SECP256K1_GENERATOR_POINT_X, SECP256K1_GENERATOR_POINT_Y)

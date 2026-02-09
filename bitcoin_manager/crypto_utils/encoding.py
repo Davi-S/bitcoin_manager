@@ -264,29 +264,3 @@ def bytes_to_wif(key_bytes: bytes, compressed: bool = False) -> str:
 
     # Encode to base58
     return base58_encode(payload + checksum)
-
-
-def sat_to_btc(satoshis: int) -> float:
-    """
-    Convert satoshis to Bitcoin.
-
-    Args:
-        satoshis: Amount in satoshis
-
-    Returns:
-        Amount in BTC
-    """
-    return satoshis / 100_000_000
-
-
-def btc_to_sat(btc: float) -> int:
-    """
-    Convert Bitcoin to satoshis.
-
-    Args:
-        btc: Amount in BTC
-
-    Returns:
-        Amount in satoshis (rounded down)
-    """
-    return int(btc * 100_000_000)
