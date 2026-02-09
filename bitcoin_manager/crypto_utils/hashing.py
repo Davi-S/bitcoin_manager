@@ -17,7 +17,15 @@ def sha256(data: bytes) -> bytes:
 
 
 def double_sha256(data: bytes) -> bytes:
-    """Compute double SHA256 hash of data."""
+    """
+    Compute double SHA256 hash of data.
+
+    Args:
+        data: Bytes to hash.
+
+    Returns:
+        SHA256(SHA256(data)) digest.
+    """
     return sha256(sha256(data))
 
 

@@ -9,14 +9,33 @@ BECH32_CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l"
 
 
 def int_to_le_bytes(value: int, length: int) -> bytes:
-    """Serialize an integer to little-endian bytes with fixed length."""
+    """
+    Serialize an integer to little-endian bytes with fixed length.
+
+    Args:
+        value: Non-negative integer to serialize.
+        length: Output byte length.
+
+    Returns:
+        Little-endian byte representation of the integer.
+
+    """
     if value < 0:
         raise ValueError("Value must be non-negative")
     return value.to_bytes(length, byteorder="little")
 
 
 def encode_varint(value: int) -> bytes:
-    """Encode an integer as Bitcoin VarInt (CompactSize)."""
+    """
+    Encode an integer as Bitcoin VarInt (CompactSize).
+
+    Args:
+        value: Non-negative integer to encode.
+
+    Returns:
+        VarInt-encoded bytes.
+
+    """
     if value < 0:
         raise ValueError("VarInt value must be non-negative")
     if value < 0xFD:
@@ -200,8 +219,6 @@ def wif_to_bytes(wif_str: str) -> bytes:
     Returns:
         Private key bytes (32 bytes)
 
-    Raises:
-        ValueError: If WIF format is invalid, checksum fails, or version byte is incorrect
     """
     cleaned = wif_str.strip()
 

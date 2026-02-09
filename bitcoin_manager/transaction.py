@@ -8,6 +8,16 @@ SIGHASH_DEFAULT = 0x00
 
 
 def _normalize_txid(txid: bytes | str) -> bytes:
+    """
+    Normalize a transaction id into internal little-endian bytes.
+
+    Args:
+        txid: Transaction id as 32-byte little-endian bytes or hex string.
+
+    Returns:
+        32-byte txid in little-endian order.
+
+    """
     if isinstance(txid, bytes):
         if len(txid) != 32:
             raise ValueError("txid must be 32 bytes")
@@ -20,6 +30,15 @@ def _normalize_txid(txid: bytes | str) -> bytes:
 
 
 def _normalize_witness(witness: t.Iterable[bytes] | None) -> tuple[bytes, ...]:
+    """
+    Normalize a witness stack into an immutable tuple of bytes.
+
+    Args:
+        witness: Iterable of witness items or None.
+
+    Returns:
+        Tuple of witness stack items.
+    """
     if witness is None:
         return ()
     items: list[bytes] = []
@@ -28,6 +47,13 @@ def _normalize_witness(witness: t.Iterable[bytes] | None) -> tuple[bytes, ...]:
 
 
 def _validate_script_pubkey(script_pubkey: bytes) -> None:
+    """
+    Validate that a scriptPubKey is non-empty.
+
+    Args:
+        script_pubkey: ScriptPubKey bytes to validate.
+
+    """
     if not script_pubkey:
         raise ValueError("script_pubkey must not be empty")
 
@@ -44,6 +70,18 @@ class TransactionInput:
         sequence: int = 0xFFFFFFF0,  # Just bellow the max value
         witness: t.Iterable[bytes] | None = None,
     ) -> None:
+        """
+        Initialize a transaction input.
+
+        Args:
+            txid: Prevout transaction id as 32-byte bytes or hex string.
+            vout: Output index in the prevout transaction.
+            prevout_value_sats: Prevout output value in satoshis.
+            prevout_script_pubkey: Prevout output scriptPubKey.
+            sequence: Input sequence number.
+            witness: Optional witness stack items.
+
+        """
         self._txid = _normalize_txid(txid)
         if vout < 0:
             raise ValueError("vout must be a non-negative integer")
@@ -60,33 +98,84 @@ class TransactionInput:
 
     @property
     def txid(self) -> bytes:
+        """
+        Return the prevout transaction id (little-endian bytes).
+
+        Returns:
+            32-byte txid.
+        """
         return self._txid
 
     @property
     def vout(self) -> int:
+        """
+        Return the prevout output index.
+
+        Returns:
+            Output index.
+        """
         return self._vout
 
     @property
     def prevout_value_sats(self) -> int:
+        """
+        Return the prevout output value in satoshis.
+
+        Returns:
+            Value in satoshis.
+        """
         return self._prevout_value_sats
 
     @property
     def prevout_script_pubkey(self) -> bytes:
+        """
+        Return the prevout output scriptPubKey.
+
+        Returns:
+            ScriptPubKey bytes.
+        """
         return self._prevout_script_pubkey
 
     @property
     def sequence(self) -> int:
+        """
+        Return the input sequence number.
+
+        Returns:
+            Sequence value.
+        """
         return self._sequence
 
     @property
     def witness(self) -> tuple[bytes, ...]:
+        """
+        Return the witness stack.
+
+        Returns:
+            Tuple of witness items.
+        """
         return tuple(self._witness)
 
     @property
     def has_witness(self) -> bool:
+        """
+        Return whether the input has a witness stack.
+
+        Returns:
+            True if witness items are present.
+        """
         return len(self._witness) > 0
 
     def with_witness(self, witness: t.Iterable[bytes] | None) -> "TransactionInput":
+        """
+        Return a new input with the provided witness stack.
+
+        Args:
+            witness: Iterable of witness items or None.
+
+        Returns:
+            New TransactionInput instance.
+        """
         return TransactionInput(
             txid=self._txid,
             vout=self._vout,
@@ -101,6 +190,14 @@ class TransactionOutput:
     """Represents a Bitcoin transaction output."""
 
     def __init__(self, value_sats: int, script_pubkey: bytes) -> None:
+        """
+        Initialize a transaction output.
+
+        Args:
+            value_sats: Output value in satoshis.
+            script_pubkey: Output scriptPubKey.
+
+        """
         if value_sats < 0:
             raise ValueError("value_sats must be non-negative")
         _validate_script_pubkey(script_pubkey)
@@ -109,10 +206,22 @@ class TransactionOutput:
 
     @property
     def value_sats(self) -> int:
+        """
+        Return the output value in satoshis.
+
+        Returns:
+            Value in satoshis.
+        """
         return self._value_sats
 
     @property
     def script_pubkey(self) -> bytes:
+        """
+        Return the output scriptPubKey.
+
+        Returns:
+            ScriptPubKey bytes.
+        """
         return self._script_pubkey
 
 
@@ -134,13 +243,24 @@ class Transaction:
         flag: int = FLAG,
         locktime: int = LOCKTIME
     ) -> None:
-        """Initialize a SegWit transaction and compute change/fees.
+        """
+        Initialize a SegWit transaction and compute change/fees.
 
         Change is computed as total_in - total_out - fee_sats. If the change is
         at least the dust limit, a change output is added to the first input's
         prevout_script_pubkey; otherwise change is dropped to zero. The effective
         fee is total_in - total_out after outputs (including any change output)
         are finalized.
+
+        Args:
+            inputs: Transaction inputs.
+            outputs: Transaction outputs.
+            fee_sats: Fee in satoshis.
+            version: Transaction version.
+            marker: SegWit marker byte.
+            flag: SegWit flag byte.
+            locktime: Transaction locktime.
+
         """
         # Validate inputs
         if fee_sats < 0:
@@ -183,6 +303,18 @@ class Transaction:
         outputs: list[TransactionOutput],
         fee_sats: int,
     ) -> int:
+        """
+        Compute change amount from inputs, outputs, and fee.
+
+        Args:
+            inputs: List of transaction inputs.
+            outputs: List of transaction outputs.
+            fee_sats: Fee in satoshis.
+
+        Returns:
+            Change value in satoshis.
+
+        """
         total_in = sum(txin.prevout_value_sats for txin in inputs)
         total_out = sum(txout.value_sats for txout in outputs)
         change = total_in - total_out - fee_sats
@@ -191,6 +323,12 @@ class Transaction:
         return change
 
     def _serialize_inputs(self) -> bytes:
+        """
+        Serialize inputs in legacy format.
+
+        Returns:
+            Serialized input bytes.
+        """
         # sourcery skip: merge-list-appends-into-extend
         parts: list[bytes] = [crypto_utils.encode_varint(len(self.inputs))]
         for txin in self.inputs:
@@ -201,6 +339,12 @@ class Transaction:
         return b"".join(parts)
 
     def _serialize_outputs(self) -> bytes:
+        """
+        Serialize outputs in legacy format.
+
+        Returns:
+            Serialized output bytes.
+        """
         # sourcery skip: merge-list-appends-into-extend
         parts: list[bytes] = [crypto_utils.encode_varint(len(self.outputs))]
         for txout in self.outputs:
@@ -210,6 +354,12 @@ class Transaction:
         return b"".join(parts)
 
     def _serialize_witnesses(self) -> bytes:
+        """
+        Serialize witness stacks for all inputs.
+
+        Returns:
+            Serialized witness bytes.
+        """
         # sourcery skip: merge-list-appends-into-extend
         parts: list[bytes] = []
         for txin in self.inputs:
@@ -220,6 +370,12 @@ class Transaction:
         return b"".join(parts)
 
     def _serialize_legacy(self) -> bytes:
+        """
+        Serialize transaction without SegWit marker/flag.
+
+        Returns:
+            Legacy-serialized transaction bytes.
+        """
         return b"".join(
             [
                 crypto_utils.int_to_le_bytes(self.VERSION, 4),
@@ -230,6 +386,12 @@ class Transaction:
         )
 
     def _serialize_segwit(self) -> bytes:
+        """
+        Serialize transaction with SegWit marker/flag and witnesses.
+
+        Returns:
+            SegWit-serialized transaction bytes.
+        """
         return b"".join(
             [
                 crypto_utils.int_to_le_bytes(self.VERSION, 4),
@@ -243,12 +405,24 @@ class Transaction:
 
     @property
     def to_hex(self) -> str:
+        """
+        Return the SegWit-serialized transaction as hex.
+
+        Returns:
+            Hex-encoded transaction.
+        """
         if self._to_hex_cache is None:
             self._to_hex_cache = self._serialize_segwit().hex()
         return self._to_hex_cache
 
     @property
     def txid_hex(self) -> str:
+        """
+        Return the legacy transaction id as hex (little-endian display).
+
+        Returns:
+            Transaction id hex string.
+        """
         if self._txid_hex_cache is None:
             digest = crypto_utils.double_sha256(self._serialize_legacy())
             self._txid_hex_cache = digest[::-1].hex()
@@ -256,6 +430,12 @@ class Transaction:
 
     @property
     def change_sats(self) -> int:
+        """
+        Return the change output value in satoshis.
+
+        Returns:
+            Change amount in satoshis.
+        """
         if self._change_sats_cache is None:
             change_scripts = {txin.prevout_script_pubkey for txin in self.inputs}
             self._change_sats_cache = sum(
@@ -267,6 +447,13 @@ class Transaction:
 
     @property
     def fee_sats(self) -> int:
+        """
+        Return the transaction fee in satoshis.
+
+        Returns:
+            Fee amount in satoshis.
+
+        """
         if self._fee_sats_cache is None:
             total_in = sum(txin.prevout_value_sats for txin in self.inputs)
             total_out = sum(txout.value_sats for txout in self.outputs)
@@ -278,6 +465,12 @@ class Transaction:
 
     @property
     def total_outflow_sats(self) -> int:
+        """
+        Return the total outflow including fee and non-change outputs.
+
+        Returns:
+            Total outflow in satoshis.
+        """
         if self._total_outflow_sats_cache is None:
             sent_sats = sum(txout.value_sats for txout in self.outputs) - self.change_sats
             self._total_outflow_sats_cache = sent_sats + self.fee_sats
@@ -285,26 +478,62 @@ class Transaction:
 
     @property
     def inputs(self) -> tuple[TransactionInput, ...]:
+        """
+        Return the transaction inputs.
+
+        Returns:
+            Tuple of TransactionInput.
+        """
         return tuple(self._inputs)
 
     @property
     def outputs(self) -> tuple[TransactionOutput, ...]:
+        """
+        Return the transaction outputs.
+
+        Returns:
+            Tuple of TransactionOutput.
+        """
         return tuple(self._outputs)
 
     @property
     def version(self) -> int: 
+        """
+        Return the transaction version.
+
+        Returns:
+            Version value.
+        """
         return self._version
     
     @property
     def marker(self) -> int:
+        """
+        Return the SegWit marker byte.
+
+        Returns:
+            Marker value.
+        """
         return self._marker
 
     @property
     def flag(self) -> int:
+        """
+        Return the SegWit flag byte.
+
+        Returns:
+            Flag value.
+        """
         return self._flag
     
     @property
     def locktime(self) -> int:
+        """
+        Return the transaction locktime.
+
+        Returns:
+            Locktime value.
+        """
         return self._locktime
 
 class TaprootSigner:
@@ -314,6 +543,17 @@ class TaprootSigner:
     def _taproot_tweak_seckey(
         priv_key: pv.PrivateKey, merkle_root: bytes = b""
     ) -> tuple[int, bytes]:
+        """
+        Compute the tweaked private key and x-only output key.
+
+        Args:
+            priv_key: Internal private key.
+            merkle_root: Optional 32-byte script tree root.
+
+        Returns:
+            Tuple of tweaked private key integer and x-only public key bytes.
+
+        """
         if merkle_root not in (b"",) and len(merkle_root) != 32:
             raise ValueError("merkle_root must be 32 bytes or empty")
 
@@ -340,6 +580,18 @@ class TaprootSigner:
 
     @staticmethod
     def _schnorr_sign(msg32: bytes, seckey_int: int, pubkey_x: bytes) -> bytes:
+        """
+        Create a BIP340 Schnorr signature.
+
+        Args:
+            msg32: 32-byte message hash.
+            seckey_int: Private key integer.
+            pubkey_x: 32-byte x-only public key.
+
+        Returns:
+            64-byte Schnorr signature.
+
+        """
         if len(msg32) != 32:
             raise ValueError("message must be 32 bytes")
         if len(pubkey_x) != 32:
@@ -386,6 +638,18 @@ class TaprootSigner:
     def _taproot_sighash(
         transaction: "Transaction", input_index: int, sighash_type: int
     ) -> bytes:
+        """
+        Compute the Taproot key-path sighash for an input.
+
+        Args:
+            transaction: Transaction to sign.
+            input_index: Index of the input being signed.
+            sighash_type: Sighash type (only SIGHASH_DEFAULT supported).
+
+        Returns:
+            32-byte Taproot sighash.
+
+        """
         if sighash_type != SIGHASH_DEFAULT:
             raise NotImplementedError("only SIGHASH_DEFAULT is supported")
         if input_index < 0 or input_index >= len(transaction.inputs):
@@ -449,6 +713,18 @@ class TaprootSigner:
         priv_key: pv.PrivateKey,
         sighash_type: int = SIGHASH_DEFAULT,
     ) -> Transaction:
+        """
+        Sign a Taproot key-path input and return a new transaction.
+
+        Args:
+            transaction: Transaction to sign.
+            input_index: Index of the input to sign.
+            priv_key: Private key for signing.
+            sighash_type: Sighash type (default SIGHASH_DEFAULT).
+
+        Returns:
+            New Transaction with the witness signature applied.
+        """
         sighash = TaprootSigner._taproot_sighash(transaction, input_index, sighash_type)
         tweaked_key, pubkey_x = TaprootSigner._taproot_tweak_seckey(priv_key)
         signature = TaprootSigner._schnorr_sign(sighash, tweaked_key, pubkey_x)

@@ -7,32 +7,69 @@ class Wallet:
     """Represents a Bitcoin wallet with a private key, public key, and Taproot address."""
 
     def __init__(self) -> None:
+        """
+        Prevent direct initialization.
+
+        """
         raise TypeError("Use Wallet.from_private_key for construction")
 
     @classmethod
     def _from_private_key(cls, priv_key: private_key.PrivateKey) -> "Wallet":
+        """
+        Construct a Wallet from a private key.
+
+        Args:
+            priv_key: Private key to associate with the wallet.
+
+        Returns:
+            Wallet instance.
+        """
         instance = object.__new__(cls)
         instance._init_from_private_key(priv_key)
         return instance
 
     def _init_from_private_key(self, priv_key: private_key.PrivateKey) -> None:
+        """
+        Initialize wallet state from a private key.
+
+        Args:
+            priv_key: Private key to store.
+        """
         self._private_key = priv_key
         self._public_key_cache: public_key.PublicKey | None = None
         self._address_cache: address.TaprootAddress | None = None
 
     @classmethod
     def from_private_key(cls, priv_key: private_key.PrivateKey) -> "Wallet":
-        """Create a wallet from a PrivateKey instance."""
+        """
+        Create a wallet from a PrivateKey instance.
+
+        Args:
+            priv_key: PrivateKey instance.
+
+        Returns:
+            Wallet instance.
+        """
         return cls._from_private_key(priv_key)
 
     @property
     def private_key(self) -> private_key.PrivateKey:
-        """Return the private key."""
+        """
+        Return the private key.
+
+        Returns:
+            PrivateKey instance.
+        """
         return self._private_key
 
     @property
     def public_key(self) -> public_key.PublicKey:
-        """Return the public key."""
+        """
+        Return the public key.
+
+        Returns:
+            PublicKey instance.
+        """
         if self._public_key_cache is None:
             self._public_key_cache = public_key.PublicKey.from_private_key(
                 self._private_key
@@ -41,7 +78,12 @@ class Wallet:
 
     @property
     def address(self) -> address.TaprootAddress:
-        """Return the Taproot address object."""
+        """
+        Return the Taproot address object.
+
+        Returns:
+            TaprootAddress instance.
+        """
         if self._address_cache is None:
             self._address_cache = address.TaprootAddress.from_public_key(
                 self.public_key
@@ -49,7 +91,12 @@ class Wallet:
         return self._address_cache
 
     def __str__(self) -> str:
-        """Return a user-friendly string representation of the wallet."""
+        """
+        Return a user-friendly string representation of the wallet.
+
+        Returns:
+            Multiline wallet summary string.
+        """
         return (
             f"Bitcoin Wallet\n"
             f"==============\n"

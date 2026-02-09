@@ -17,15 +17,34 @@ class TaprootAddress:
     _CHECKSUM_CONST = 0x2BC830A3
 
     def __init__(self) -> None:
+        """
+        Prevent direct initialization.
+
+        """
         raise TypeError("Use TaprootAddress.from_* classmethods for construction")
 
     @classmethod
     def _from_witness_program(cls, witness_program: bytes) -> "TaprootAddress":
+        """
+        Construct a TaprootAddress from a witness program.
+
+        Args:
+            witness_program: 32-byte witness program.
+
+        Returns:
+            TaprootAddress instance.
+        """
         instance = object.__new__(cls)
         instance._init_from_witness_program(witness_program)
         return instance
 
     def _init_from_witness_program(self, witness_program: bytes) -> None:
+        """
+        Initialize address state from a witness program.
+
+        Args:
+            witness_program: 32-byte witness program.
+        """
         self._witness_program = witness_program
         self._checksum_cache: t.Optional[t.List[int]] = None
         self._address_cache: t.Optional[str] = None
@@ -33,7 +52,10 @@ class TaprootAddress:
         self._validate()
 
     def _validate(self) -> None:
-        """Validate the Taproot address data."""
+        """
+        Validate the Taproot address data.
+
+        """
         if len(self._witness_program) != self._WITNESS_PROGRAM_LEN:
             raise ValueError("Taproot witness program must be 32 bytes")
 
@@ -41,7 +63,17 @@ class TaprootAddress:
     def from_public_key(
         cls, pubkey: public_key.PublicKey, merkle_root: bytes = b""
     ) -> "TaprootAddress":
-        """Create a Taproot address from a PublicKey instance."""
+        """
+        Create a Taproot address from a PublicKey instance.
+
+        Args:
+            pubkey: Internal public key.
+            merkle_root: Optional 32-byte script tree root; empty for key-only.
+
+        Returns:
+            TaprootAddress instance.
+
+        """
         if merkle_root not in (b"",) and len(merkle_root) != cls._WITNESS_PROGRAM_LEN:
             raise ValueError("merkle_root must be 32 bytes or empty")
 
@@ -56,7 +88,16 @@ class TaprootAddress:
 
     @classmethod
     def from_address(cls, address: str) -> "TaprootAddress":
-        """Parse a Taproot address string into a TaprootAddress instance."""
+        """
+        Parse a Taproot address string into a TaprootAddress instance.
+
+        Args:
+            address: Bech32m-encoded Taproot address string.
+
+        Returns:
+            TaprootAddress instance.
+
+        """
         address_stripped = address.strip()
         address_lower = address_stripped.lower()
         if not address_stripped.islower() and not address_stripped.isupper():
@@ -98,12 +139,22 @@ class TaprootAddress:
 
     @property
     def witness_program(self) -> bytes:
-        """Return the Taproot witness program (32 bytes)."""
+        """
+        Return the Taproot witness program (32 bytes).
+
+        Returns:
+            Witness program bytes.
+        """
         return self._witness_program
 
     @property
     def checksum(self) -> t.List[int]:
-        """Return the Bech32m checksum as a list of 5-bit integers."""
+        """
+        Return the Bech32m checksum as a list of 5-bit integers.
+
+        Returns:
+            Checksum values.
+        """
         if self._checksum_cache is None:
             witprog = crypto_utils.convertbits(list(self._witness_program), 8, 5)
             data = [self._WITNESS_VERSION] + witprog
@@ -114,7 +165,12 @@ class TaprootAddress:
 
     @property
     def address(self) -> str:
-        """Return the Bech32m-encoded Taproot address string."""
+        """
+        Return the Bech32m-encoded Taproot address string.
+
+        Returns:
+            Address string.
+        """
         if self._address_cache is None:
             witprog = crypto_utils.convertbits(list(self._witness_program), 8, 5)
             data = [self._WITNESS_VERSION] + witprog
@@ -123,10 +179,21 @@ class TaprootAddress:
 
     @property
     def scriptpubkey(self) -> bytes:
-        """Return the P2TR scriptPubKey bytes."""
+        """
+        Return the P2TR scriptPubKey bytes.
+
+        Returns:
+            ScriptPubKey bytes.
+        """
         if self._scriptpubkey_cache is None:
             self._scriptpubkey_cache = self._SCRIPTPUBKEY_PREFIX + self._witness_program
         return self._scriptpubkey_cache
 
     def __str__(self) -> str:
+        """
+        Return the Taproot address string.
+
+        Returns:
+            Bech32m-encoded address string.
+        """
         return self.address
