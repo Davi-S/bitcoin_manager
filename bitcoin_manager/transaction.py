@@ -134,6 +134,14 @@ class Transaction:
         flag: int = FLAG,
         locktime: int = LOCKTIME
     ) -> None:
+        """Initialize a SegWit transaction and compute change/fees.
+
+        Change is computed as total_in - total_out - fee_sats. If the change is
+        at least the dust limit, a change output is added to the first input's
+        prevout_script_pubkey; otherwise change is dropped to zero. The effective
+        fee is total_in - total_out after outputs (including any change output)
+        are finalized.
+        """
         # Validate inputs
         if fee_sats < 0:
             raise ValueError("fee_sats must be a non-negative integer")
