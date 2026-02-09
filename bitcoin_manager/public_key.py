@@ -59,7 +59,8 @@ class PublicKey:
                 self._point_even_y_cache = self._point_raw
             else:
                 self._point_even_y_cache = crypto_utils.SECP256K1Point.from_coordinates(
-                    self._point_raw.x, crypto_utils.SECP256K1_FIELD_PRIME - self._point_raw.y
+                    self._point_raw.x,
+                    crypto_utils.SECP256K1_FIELD_PRIME - self._point_raw.y,
                 )
         return self._point_even_y_cache
 
@@ -74,7 +75,9 @@ class PublicKey:
         Returns:
             PublicKey instance.
         """
-        point_value = crypto_utils.SECP256K1_GENERATOR_POINT.multiply(private_key.to_int)
+        point_value = crypto_utils.SECP256K1_GENERATOR_POINT.multiply(
+            private_key.to_int
+        )
         return cls._from_point(point_value)
 
     @classmethod

@@ -1,8 +1,18 @@
+from __future__ import annotations
+
 # Secp256k1 curve parameters
-SECP256K1_FIELD_PRIME = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
-SECP256K1_CURVE_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
-SECP256K1_GENERATOR_POINT_X = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
-SECP256K1_GENERATOR_POINT_Y = 0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8
+SECP256K1_FIELD_PRIME = (
+    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
+)
+SECP256K1_CURVE_ORDER = (
+    0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+)
+SECP256K1_GENERATOR_POINT_X = (
+    0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798
+)
+SECP256K1_GENERATOR_POINT_Y = (
+    0x483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8
+)
 
 # Secp256k1 order
 SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
@@ -53,11 +63,16 @@ class SECP256K1Point:
         Validate point coordinates on initialization.
 
         """
-        if not (0 <= self._x < SECP256K1_FIELD_PRIME and 0 <= self._y < SECP256K1_FIELD_PRIME):
+        if not (
+            0 <= self._x < SECP256K1_FIELD_PRIME
+            and 0 <= self._y < SECP256K1_FIELD_PRIME
+        ):
             raise ValueError("Point coordinates out of field range")
 
         # Check curve equation: y^2 = x^3 + 7 (mod P)
-        if (self._y * self._y - (self._x * self._x * self._x + 7)) % SECP256K1_FIELD_PRIME != 0:
+        if (
+            self._y * self._y - (self._x * self._x * self._x + 7)
+        ) % SECP256K1_FIELD_PRIME != 0:
             raise ValueError("Point is not on the secp256k1 curve")
 
     @classmethod
@@ -183,13 +198,21 @@ class SECP256K1Point:
         if x1 == x2:
             if y1 == y2:
                 # Point doubling: P + P
-                s = (3 * x1 * x1 * pow(2 * y1, SECP256K1_FIELD_PRIME - 2, SECP256K1_FIELD_PRIME)) % SECP256K1_FIELD_PRIME
+                s = (
+                    3
+                    * x1
+                    * x1
+                    * pow(2 * y1, SECP256K1_FIELD_PRIME - 2, SECP256K1_FIELD_PRIME)
+                ) % SECP256K1_FIELD_PRIME
             else:
                 # P + (-P) = point at infinity
                 raise ValueError("Cannot add point to its inverse (point at infinity)")
         else:
             # Regular addition: (y2 - y1) / (x2 - x1)
-            s = ((y2 - y1) * pow(x2 - x1, SECP256K1_FIELD_PRIME - 2, SECP256K1_FIELD_PRIME)) % SECP256K1_FIELD_PRIME
+            s = (
+                (y2 - y1)
+                * pow(x2 - x1, SECP256K1_FIELD_PRIME - 2, SECP256K1_FIELD_PRIME)
+            ) % SECP256K1_FIELD_PRIME
 
         x3 = (s * s - x1 - x2) % SECP256K1_FIELD_PRIME
         y3 = (s * (x1 - x3) - y1) % SECP256K1_FIELD_PRIME
@@ -266,4 +289,6 @@ class SECP256K1Point:
 
 
 # Generator point G for secp256k1
-SECP256K1_GENERATOR_POINT = SECP256K1Point.from_coordinates(SECP256K1_GENERATOR_POINT_X, SECP256K1_GENERATOR_POINT_Y)
+SECP256K1_GENERATOR_POINT = SECP256K1Point.from_coordinates(
+    SECP256K1_GENERATOR_POINT_X, SECP256K1_GENERATOR_POINT_Y
+)

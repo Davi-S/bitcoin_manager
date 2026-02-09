@@ -4,7 +4,6 @@ import typing as t
 
 from . import crypto_utils
 from . import public_key
-from . import crypto_utils
 
 
 class TaprootAddress:
@@ -82,7 +81,9 @@ class TaprootAddress:
         public_key_point = pubkey.to_point_even_y
         internal_pubkey = pubkey.to_x_only_even_y_bytes
         tweak_hash = crypto_utils.tagged_hash("TapTweak", internal_pubkey + merkle_root)
-        tweak_int = int.from_bytes(tweak_hash, byteorder="big") % crypto_utils.SECP256K1_ORDER
+        tweak_int = (
+            int.from_bytes(tweak_hash, byteorder="big") % crypto_utils.SECP256K1_ORDER
+        )
         tweak_point = crypto_utils.SECP256K1_GENERATOR_POINT.multiply(tweak_int)
         output_point = public_key_point.add(tweak_point)
         witness_program = output_point.x.to_bytes(cls._WITNESS_PROGRAM_LEN, "big")

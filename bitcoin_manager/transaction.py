@@ -243,7 +243,7 @@ class Transaction:
         version: int = VERSION,
         marker: int = MARKER,
         flag: int = FLAG,
-        locktime: int = LOCKTIME
+        locktime: int = LOCKTIME,
     ) -> None:
         """
         Initialize a SegWit transaction and compute change/fees.
@@ -474,7 +474,9 @@ class Transaction:
             Total outflow in satoshis.
         """
         if self._total_outflow_sats_cache is None:
-            sent_sats = sum(txout.value_sats for txout in self.outputs) - self.change_sats
+            sent_sats = (
+                sum(txout.value_sats for txout in self.outputs) - self.change_sats
+            )
             self._total_outflow_sats_cache = sent_sats + self.fee_sats
         return self._total_outflow_sats_cache
 
@@ -499,7 +501,7 @@ class Transaction:
         return tuple(self._outputs)
 
     @property
-    def version(self) -> int: 
+    def version(self) -> int:
         """
         Return the transaction version.
 
@@ -507,7 +509,7 @@ class Transaction:
             Version value.
         """
         return self._version
-    
+
     @property
     def marker(self) -> int:
         """
@@ -527,7 +529,7 @@ class Transaction:
             Flag value.
         """
         return self._flag
-    
+
     @property
     def locktime(self) -> int:
         """
@@ -537,6 +539,7 @@ class Transaction:
             Locktime value.
         """
         return self._locktime
+
 
 class TaprootSigner:
     """Sign Taproot key-path inputs."""
