@@ -68,6 +68,7 @@ def main():  # sourcery skip: extract-duplicate-method
     print("=" * 80)
     print(f"Change Amount: {signed_tx.change_sats} sats")
     print(f"Fee Amount: {signed_tx.fee_sats} sats")
+    print(f"Total outflow sats: {signed_tx.total_outflow_sats} sats")
 
 
 if __name__ == "__main__":

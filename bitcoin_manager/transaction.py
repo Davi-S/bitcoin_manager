@@ -173,6 +173,7 @@ class Transaction:
         self._locktime = locktime
         self._change_sats_cache: int | None = None
         self._fee_sats_cache: int | None = None
+        self._total_outflow_sats_cache: int | None = None
         self._to_hex_cache: str | None = None
         self._txid_hex_cache: str | None = None
 
@@ -274,6 +275,13 @@ class Transaction:
                 raise ValueError("insufficient input amount for outputs")
             self._fee_sats_cache = fee
         return self._fee_sats_cache
+
+    @property
+    def total_outflow_sats(self) -> int:
+        if self._total_outflow_sats_cache is None:
+            sent_sats = sum(txout.value_sats for txout in self.outputs) - self.change_sats
+            self._total_outflow_sats_cache = sent_sats + self.fee_sats
+        return self._total_outflow_sats_cache
 
     @property
     def inputs(self) -> tuple[TransactionInput, ...]:
