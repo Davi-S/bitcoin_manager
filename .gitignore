@@ -9,6 +9,8 @@ wheels/
 # Virtual environments
 .venv
 
+.vscode
+
 # Testing files
 private_key.txt
 wallet_*.txt
