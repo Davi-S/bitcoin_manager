@@ -12,8 +12,6 @@ def _normalize_txid(txid: bytes | str) -> bytes:
         if len(txid) != 32:
             raise ValueError("txid must be 32 bytes")
         return txid
-    if not isinstance(txid, str):
-        raise TypeError("txid must be bytes or hex string")
     cleaned = txid.strip().lower().removeprefix("0x")
     if len(cleaned) != 64:
         raise ValueError("txid hex must be 32 bytes (64 hex chars)")
@@ -26,16 +24,11 @@ def _normalize_witness(witness: t.Iterable[bytes] | None) -> tuple[bytes, ...]:
         return ()
     items: list[bytes] = []
     for item in witness:
-        if isinstance(item, (bytes, bytearray)):
-            items.append(bytes(item))
-        else:
-            raise TypeError("witness items must be bytes")
+        items.append(bytes(item))
     return tuple(items)
 
 
 def _validate_script_pubkey(script_pubkey: bytes) -> None:
-    if not isinstance(script_pubkey, (bytes, bytearray)):
-        raise TypeError("script_pubkey must be bytes")
     if not script_pubkey:
         raise ValueError("script_pubkey must not be empty")
 
@@ -138,7 +131,7 @@ class Transaction:
         outputs: t.Iterable[TransactionOutput],
         fee_sats: int,
     ) -> None:
-        if not isinstance(fee_sats, int) or fee_sats < 0:
+        if fee_sats < 0:
             raise ValueError("fee_sats must be a non-negative integer")
         inputs_list = list(inputs)
         outputs_list = list(outputs)
@@ -146,10 +139,6 @@ class Transaction:
             raise ValueError("transaction must have at least one input")
         if not outputs_list:
             raise ValueError("transaction must have at least one output")
-        if not all(isinstance(item, TransactionInput) for item in inputs_list):
-            raise TypeError("inputs must be TransactionInput instances")
-        if not all(isinstance(item, TransactionOutput) for item in outputs_list):
-            raise TypeError("outputs must be TransactionOutput instances")
 
         change_sats = self._compute_change_sats(inputs_list, outputs_list, fee_sats)
         if change_sats >= DUST_LIMIT_P2TR:
@@ -416,11 +405,6 @@ class TaprootSigner:
         priv_key: pv.PrivateKey,
         sighash_type: int = SIGHASH_DEFAULT,
     ) -> Transaction:
-        if not isinstance(transaction, Transaction):
-            raise TypeError("transaction must be a Transaction instance")
-        if not isinstance(priv_key, pv.PrivateKey):
-            raise TypeError("priv_key must be a PrivateKey instance")
-
         sighash = TaprootSigner._taproot_sighash(transaction, input_index, sighash_type)
         tweaked_key, pubkey_x = TaprootSigner._taproot_tweak_seckey(priv_key)
         signature = TaprootSigner._schnorr_sign(sighash, tweaked_key, pubkey_x)

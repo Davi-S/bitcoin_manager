@@ -59,9 +59,6 @@ class TaprootAddress:
     @classmethod
     def from_address(cls, address: str) -> "TaprootAddress":
         """Parse a Taproot address string into a TaprootAddress instance."""
-        if not isinstance(address, str):
-            raise ValueError("Address must be a string")
-
         address_stripped = address.strip()
         address_lower = address_stripped.lower()
         if not address_stripped.islower() and not address_stripped.isupper():

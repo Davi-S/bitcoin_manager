@@ -141,9 +141,6 @@ class Point:
         Raises:
             ValueError: If adding a point to its inverse (point at infinity)
         """
-        if not isinstance(other, Point):
-            raise TypeError("Can only add Point to Point")
-
         x1, y1 = self.x, self.y
         x2, y2 = other.x, other.y
 
@@ -175,7 +172,7 @@ class Point:
         Raises:
             ValueError: If scalar is not positive
         """
-        if not isinstance(k, int) or k <= 0:
+        if k <= 0:
             raise ValueError("Scalar must be an integer greater than 0")
 
         addend = self
