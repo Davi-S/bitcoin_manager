@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 
 from . import crypto_utils
@@ -24,7 +26,7 @@ class TaprootAddress:
         raise TypeError("Use TaprootAddress.from_* classmethods for construction")
 
     @classmethod
-    def _from_witness_program(cls, witness_program: bytes) -> "TaprootAddress":
+    def _from_witness_program(cls, witness_program: bytes) -> TaprootAddress:
         """
         Construct a TaprootAddress from a witness program.
 
@@ -62,7 +64,7 @@ class TaprootAddress:
     @classmethod
     def from_public_key(
         cls, pubkey: public_key.PublicKey, merkle_root: bytes = b""
-    ) -> "TaprootAddress":
+    ) -> TaprootAddress:
         """
         Create a Taproot address from a PublicKey instance.
 
@@ -87,7 +89,7 @@ class TaprootAddress:
         return cls._from_witness_program(witness_program)
 
     @classmethod
-    def from_address(cls, address: str) -> "TaprootAddress":
+    def from_address(cls, address: str) -> TaprootAddress:
         """
         Parse a Taproot address string into a TaprootAddress instance.
 

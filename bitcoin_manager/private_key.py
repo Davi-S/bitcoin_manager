@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 
 from . import crypto_utils
@@ -59,7 +61,7 @@ class PrivateKey:
         raise TypeError("Use PrivateKey.from_* classmethods for construction")
 
     @classmethod
-    def _from_bytes(cls, key_bytes: bytes) -> "PrivateKey":
+    def _from_bytes(cls, key_bytes: bytes) -> PrivateKey:
         """
         Construct a PrivateKey from raw bytes.
 
@@ -94,7 +96,7 @@ class PrivateKey:
         self._key_wif_compressed_cache: t.Optional[str] = None
 
     @classmethod
-    def from_bytes(cls, key_bytes: bytes) -> "PrivateKey":
+    def from_bytes(cls, key_bytes: bytes) -> PrivateKey:
         """
         Create from 32 raw bytes.
 
@@ -107,7 +109,7 @@ class PrivateKey:
         return cls._from_bytes(key_bytes)
 
     @classmethod
-    def from_int(cls, key_int: int) -> "PrivateKey":
+    def from_int(cls, key_int: int) -> PrivateKey:
         """
         Create from an integer.
 
@@ -121,7 +123,7 @@ class PrivateKey:
         return cls._from_bytes(key_bytes)
 
     @classmethod
-    def from_hex(cls, hex_str: str) -> "PrivateKey":
+    def from_hex(cls, hex_str: str) -> PrivateKey:
         """
         Create from a hex string (with or without 0x prefix).
 
@@ -135,7 +137,7 @@ class PrivateKey:
         return cls._from_bytes(bytes.fromhex(normalized))
 
     @classmethod
-    def from_bits(cls, bits: str) -> "PrivateKey":
+    def from_bits(cls, bits: str) -> PrivateKey:
         """
         Create from a bit string.
 
@@ -150,7 +152,7 @@ class PrivateKey:
         return cls.from_int(key_int)
 
     @classmethod
-    def from_wif(cls, wif_str: str) -> "PrivateKey":
+    def from_wif(cls, wif_str: str) -> PrivateKey:
         """
         Create from a WIF (Wallet Import Format) string.
 

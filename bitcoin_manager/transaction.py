@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 from . import crypto_utils
 from . import private_key as pv
@@ -166,7 +168,7 @@ class TransactionInput:
         """
         return len(self._witness) > 0
 
-    def with_witness(self, witness: t.Iterable[bytes] | None) -> "TransactionInput":
+    def with_witness(self, witness: t.Iterable[bytes] | None) -> TransactionInput:
         """
         Return a new input with the provided witness stack.
 
@@ -636,7 +638,7 @@ class TaprootSigner:
 
     @staticmethod
     def _taproot_sighash(
-        transaction: "Transaction", input_index: int, sighash_type: int
+        transaction: Transaction, input_index: int, sighash_type: int
     ) -> bytes:
         """
         Compute the Taproot key-path sighash for an input.

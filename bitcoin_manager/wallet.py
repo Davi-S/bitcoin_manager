@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from . import address
 from . import private_key
 from . import public_key
@@ -14,7 +16,7 @@ class Wallet:
         raise TypeError("Use Wallet.from_private_key for construction")
 
     @classmethod
-    def _from_private_key(cls, priv_key: private_key.PrivateKey) -> "Wallet":
+    def _from_private_key(cls, priv_key: private_key.PrivateKey) -> Wallet:
         """
         Construct a Wallet from a private key.
 
@@ -40,7 +42,7 @@ class Wallet:
         self._address_cache: address.TaprootAddress | None = None
 
     @classmethod
-    def from_private_key(cls, priv_key: private_key.PrivateKey) -> "Wallet":
+    def from_private_key(cls, priv_key: private_key.PrivateKey) -> Wallet:
         """
         Create a wallet from a PrivateKey instance.
 

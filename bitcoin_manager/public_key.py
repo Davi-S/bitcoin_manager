@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import typing as t
 
 from . import crypto_utils
@@ -15,7 +17,7 @@ class PublicKey:
         raise TypeError("Use PublicKey.from_* classmethods for construction")
 
     @classmethod
-    def _from_point(cls, point_raw: crypto_utils.SECP256K1Point) -> "PublicKey":
+    def _from_point(cls, point_raw: crypto_utils.SECP256K1Point) -> PublicKey:
         """
         Construct a PublicKey from a curve point.
 
@@ -62,7 +64,7 @@ class PublicKey:
         return self._point_even_y_cache
 
     @classmethod
-    def from_private_key(cls, private_key: private_key.PrivateKey) -> "PublicKey":
+    def from_private_key(cls, private_key: private_key.PrivateKey) -> PublicKey:
         """
         Create from a PrivateKey instance.
 
@@ -76,7 +78,7 @@ class PublicKey:
         return cls._from_point(point_value)
 
     @classmethod
-    def from_point(cls, pt: crypto_utils.SECP256K1Point) -> "PublicKey":
+    def from_point(cls, pt: crypto_utils.SECP256K1Point) -> PublicKey:
         """
         Create from a public key point.
 
@@ -89,7 +91,7 @@ class PublicKey:
         return cls._from_point(pt)
 
     @classmethod
-    def from_sec1(cls, sec1_bytes: bytes) -> "PublicKey":
+    def from_sec1(cls, sec1_bytes: bytes) -> PublicKey:
         """
         Create from SEC1-encoded public key bytes.
 
